@@ -16,6 +16,9 @@ from kivy.animation import Animation
 from kivy.uix.popup import Popup # Import Popup
 from kivy.uix.textinput import TextInput # Import TextInput
 # from kivy.uix.spinner import Spinner # No longer needed
+from adminNav import NavBar
+from userNav import UserNavBar
+from tickets import routes_data, get_routes
 
 # Global color definitions
 normal_color = (0.22, 0.27, 0.74, 1)  # #3944BC in RGBA
@@ -23,17 +26,6 @@ pressed_color = (0.18, 0.22, 0.64, 1)  # Slightly darker shade for pressed state
 gray_bg = (0.95, 0.95, 0.97, 1)  # Light gray background
 white = (1, 1, 1, 1)
 black = (0, 0, 0, 1)
-
-# Sample flight data
-routes_data = [
-    {"from": "Manila", "to": "Cebu", "economy_price": 3500, "business_price": 5800, "availability": True},
-    {"from": "Cebu", "to": "Manila", "economy_price": 3500, "business_price": 5800, "availability": True},
-    {"from": "Manila", "to": "Davao", "economy_price": 4200, "business_price": 6500, "availability": True},
-    {"from": "Davao", "to": "Manila", "economy_price": 6500, "business_price": 9500, "availability": True},
-    {"from": "Cebu", "to": "Davao", "economy_price": 2900, "business_price": 4800, "availability": True},
-    {"from": "Davao", "to": "Cebu", "economy_price": 2900, "business_price": 4800, "availability": True},
-    {"from": "Manila", "to": "Davao", "economy_price": 4200, "business_price": 6500, "availability": False},
-]
 
 # Define tax rate
 TAX_RATE = 0.12
@@ -284,6 +276,7 @@ class CheckoutPopup(Popup):
 class RouteSelector(BoxLayout):
     # Modified __init__ to accept transaction_panel instance
     def __init__(self, transaction_panel, **kwargs):
+        print('RouteSelector __init__')
         super(RouteSelector, self).__init__(**kwargs)
         self.orientation = 'vertical'
         self.spacing = dp(10)
@@ -297,10 +290,6 @@ class RouteSelector(BoxLayout):
             self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(5)])
         self.bind(size=self._update_rect, pos=self._update_rect)
 
-        # Removed the placeholder box for vertical alignment
-        # self.add_widget(BoxLayout(size_hint=(1, None), height=dp(30)))
-
-
         # Add filter tabs at the top
         self.add_filter_tabs()
 
@@ -313,14 +302,14 @@ class RouteSelector(BoxLayout):
         self.add_widget(scrollview)
 
         # Load routes
-        self.load_routes(routes_data)
+        self.load_routes(get_routes())
 
     def _update_rect(self, instance, value):
         instance.rect.size = instance.size
         instance.rect.pos = instance.pos
 
     def add_filter_tabs(self):
-        tab_layout = BoxLayout(size_hint=(1, None), height=dp(50), spacing=dp(5))
+        tab_layout = BoxLayout(size_hint=(1, None), height=dp(50), spacing=dp(5), padding=[0, 0, 0, 0])
 
         # Create tab buttons
         tabs = ["All Routes", "Manila-Cebu", "Cebu-Manila", "Manila-Davao", "Cebu-Davao", "Davao-Cebu", "Davao-Manila"]
@@ -329,14 +318,13 @@ class RouteSelector(BoxLayout):
             btn = ToggleButton(
                 text=tab,
                 group="filter_tabs",
-                size_hint=(1, 1),
+                size_hint=(1, 1),  # Make tabs expand equally
                 font_size=sp(14),
                 background_normal="",
                 background_down="",
                 color=black if i > 0 else white,
                 bold=False
             )
-
             # Customize appearance based on index
             if i == 0:  # First tab is selected
                 btn.state = "down"
@@ -349,6 +337,24 @@ class RouteSelector(BoxLayout):
                     RoundedRectangle(size=btn.size, pos=btn.pos, radius=[dp(5)])
             btn.bind(size=self._update_tab_bg, pos=self._update_tab_bg, state=self._update_tab_state)
             tab_layout.add_widget(btn)
+
+        # Spacer to push the button to the right
+        from kivy.uix.widget import Widget
+        tab_layout.add_widget(Widget(size_hint_x=0.2))  # Flexible spacer
+
+        # Add the refresh button
+        refresh_btn = Button(
+            text="Refresh Items",
+            size_hint=(None, 1),
+            width=dp(140),
+            background_color=(0.22, 0.27, 0.74, 1),
+            color=(1, 1, 1, 1),
+            font_size=sp(14),
+            background_normal='',
+            border=(16, 16, 16, 16)
+        )
+        refresh_btn.bind(on_release=lambda instance: self.load_routes(get_routes()))
+        tab_layout.add_widget(refresh_btn)
 
         self.add_widget(tab_layout)
 
@@ -369,30 +375,17 @@ class RouteSelector(BoxLayout):
         else:
             instance.color = black
 
-    def load_routes(self, routes_data):
+    def load_routes(self, routes):
         self.route_container.clear_widgets()
-
-        for route in routes_data:
-            # Create economy card
-            economy_card = self.create_route_card(
-                route["from"],
-                route["to"],
-                "Economy",
-                route["economy_price"],
-                route["availability"]
+        for ticket in routes:
+            card = self.create_route_card(
+                ticket["from"],
+                ticket["to"],
+                ticket["class"],
+                ticket["price"],
+                ticket["availability"]
             )
-
-            # Create business card
-            business_card = self.create_route_card(
-                route["from"],
-                route["to"],
-                "Business",
-                route["business_price"],
-                route["availability"]
-            )
-
-            self.route_container.add_widget(economy_card)
-            self.route_container.add_widget(business_card)
+            self.route_container.add_widget(card)
 
     def create_route_card(self, from_city, to_city, travel_class, price, available=True):
         card = BoxLayout(
@@ -551,6 +544,7 @@ class TransactionPanel(BoxLayout):
 
 
     def __init__(self, **kwargs):
+        print('TransactionPanel __init__')
         super(TransactionPanel, self).__init__(**kwargs)
         self.orientation = 'vertical'
         # Decreased overall spacing for the TransactionPanel
@@ -1068,214 +1062,58 @@ class TransactionPanel(BoxLayout):
         popup.open()
 
 
-class NavBar(BoxLayout):
-    def __init__(self, **kwargs):
-        super(NavBar, self).__init__(**kwargs)
-        self.size_hint_y = None
-        self.height = dp(60)
-        self.orientation = 'horizontal'
-
-        # Left section - Logo and title
-        # Adjusted size_hint to be slightly larger
-        left_section = BoxLayout(size_hint=(0.1, 1), orientation='horizontal', padding=[dp(10), 0]) # Added padding
-        with left_section.canvas.before:
-            Color(*normal_color) # This sets the color to the predefined normal_color (blue)
-            self.left_rect = Rectangle(size=left_section.size, pos=left_section.pos) # This draws a rectangle with that color
-        left_section.bind(size=self._update_left_bg, pos=self._update_left_bg)
-
-        logo_btn = Button(
-            text="POSit",
-            size_hint=(None, 1),
-            width=dp(100),
-            background_normal="",
-            background_color=normal_color, # Keep background_color for consistency
-            color=white,
-            font_size=sp(16),
-            bold=True
-        )
-        left_section.add_widget(logo_btn)
-
-        # Spacer - now needs a white background
-        # Adjusted size_hint to be smaller
-        spacer = BoxLayout(size_hint=(0.05, 1))
-        with spacer.canvas.before:
-            Color(*white) # Set white background for the spacer
-            self.spacer_rect = Rectangle(size=spacer.size, pos=spacer.pos)
-        spacer.bind(size=self._update_spacer_bg, pos=self._update_spacer_bg)
-
-        # Navigation tabs
-        # Adjusted size_hint to be larger
-        nav_tabs = BoxLayout(size_hint=(0.5, 1), padding=[dp(10), 0], spacing=dp(50)) # Increased spacing
-        with nav_tabs.canvas.before:
-            Color(*white)
-            Rectangle(size=nav_tabs.size, pos=nav_tabs.pos)
-        nav_tabs.bind(size=self._update_tabs_bg, pos=self._update_tabs_bg)
-
-        tab_items = ["Dashboard", "Inventory Management", "User Management", "Reports", "Settings"]
-
-        for item in tab_items:
-            tab = Button(
-                text=item,
-                size_hint=(1, 1),
-                background_normal="",
-                background_color=(1, 1, 1, 0),
-                color=(0.5, 0.5, 0.5, 1) if item != "Dashboard" else normal_color,
-                font_size=sp(14),
-                bold=item == "Dashboard"
-            )
-            nav_tabs.add_widget(tab)
-
-        # Right section - User avatar
-        # Adjusted size_hint
-        right_section = BoxLayout(size_hint=(0.2, 1), padding=[dp(10), dp(10)]) # Added padding
-        with right_section.canvas.before:
-            Color(*white)
-            Rectangle(size=right_section.size, pos=right_section.pos)
-        right_section.bind(size=self._update_right_bg, pos=self._update_right_bg)
-
-        # Add user info and icon
-        # Adjusted spacing
-        user_layout = BoxLayout(size_hint=(1, 1), spacing=dp(15)) # Increased spacing
-
-        user_info = BoxLayout(orientation='vertical', size_hint=(0.7, 1), padding=[dp(5), 0])
-        user_name = Label(
-            text="John Doe",
-            font_size=sp(14),
-            bold=True,
-            size_hint=(1, 0.5),
-            halign='right',
-            color=black
-        )
-        user_name.bind(size=self._update_label)
-
-        user_role = Label(
-            text="Admin",
-            font_size=sp(12),
-            size_hint=(1, 0.5),
-            halign='right',
-            color=(0.5, 0.5, 0.5, 1)
-        )
-        user_role.bind(size=self._update_label)
-
-        user_info.add_widget(user_name)
-        user_info.add_widget(user_role)
-
-        # Create avatar button (circle with initials)
-        avatar_btn = Button(
-            text="JD",
-            size_hint=(None, None),
-            size=(dp(40), dp(40)),
-            background_normal="",
-            background_color=normal_color,
-            color=white,
-            font_size=sp(14),
-            bold=True
-        )
-
-        # Make avatar circular
-        with avatar_btn.canvas.before:
-            Color(*normal_color)
-            self.avatar_ellipse = Rectangle(size=avatar_btn.size, pos=avatar_btn.pos)
-        avatar_btn.bind(size=self._update_avatar, pos=self._update_avatar)
-
-        user_layout.add_widget(user_info)
-        user_layout.add_widget(avatar_btn)
-        right_section.add_widget(user_layout)
-
-        # Combine all sections
-        self.add_widget(left_section)
-        self.add_widget(spacer)
-        self.add_widget(nav_tabs)
-        self.add_widget(right_section)
-
-    # Added _update_left_bg back
-    def _update_left_bg(self, instance, value):
-        instance.canvas.before.clear()
-        with instance.canvas.before:
-            Color(*normal_color)
-            Rectangle(size=instance.size, pos=instance.pos)
-
-    def _update_spacer_bg(self, instance, value):
-        instance.canvas.before.clear()
-        with instance.canvas.before:
-            Color(*white) # Draw white background for the spacer
-            self.spacer_rect = Rectangle(size=instance.size, pos=instance.pos)
-
-    def _update_tabs_bg(self, instance, value):
-        instance.canvas.before.clear()
-        with instance.canvas.before:
-            Color(*white)
-            Rectangle(size=instance.size, pos=instance.pos)
-
-    def _update_right_bg(self, instance, value):
-        instance.canvas.before.clear()
-        with instance.canvas.before:
-            Color(*white)
-            Rectangle(size=instance.size, pos=instance.pos)
-
-    def _update_label(self, instance, value):
-        instance.text_size = (instance.width, None)
-
-    def _update_avatar(self, instance, value):
-        # Create circular avatar
-        self.avatar_ellipse.size = instance.size
-        self.avatar_ellipse.pos = instance.pos
-
-
 class MainScreen(Screen):
     def __init__(self, **kwargs):
+        print('MainScreen __init__')
         super(MainScreen, self).__init__(**kwargs)
 
         # Create root layout
-        root_layout = BoxLayout(orientation='vertical')
-
-        # Add the navbar at the top
-        navbar = NavBar()
-        root_layout.add_widget(navbar)
+        self.root_layout = BoxLayout(orientation='vertical')
 
         # Create content layout (horizontal)
-        content_layout = BoxLayout(orientation='horizontal', padding=[dp(20), dp(20), dp(20), dp(20)], spacing=dp(20))
+        self.content_layout = BoxLayout(orientation='horizontal', padding=[dp(20), dp(20), dp(20), dp(20)], spacing=dp(20))
 
         # Set background color
-        with content_layout.canvas.before:
+        with self.content_layout.canvas.before:
             Color(*gray_bg)
-            Rectangle(size=content_layout.size, pos=content_layout.pos)
-        content_layout.bind(size=self._update_bg, pos=self._update_bg)
+            Rectangle(size=self.content_layout.size, pos=self.content_layout.pos)
+        self.content_layout.bind(size=self._update_bg, pos=self._update_bg)
 
         # Add route selector (left side) - pass transaction_panel instance
-        route_selector = RouteSelector(transaction_panel=None, size_hint_x=0.75)
-        content_layout.add_widget(route_selector)
+        self.route_selector = RouteSelector(transaction_panel=None, size_hint_x=0.75)
+        self.content_layout.add_widget(self.route_selector)
 
         # Add transaction panel (right side) - instantiate first
-        transaction_panel = TransactionPanel(size_hint_x=0.25)
-        content_layout.add_widget(transaction_panel)
+        self.transaction_panel = TransactionPanel(size_hint_x=0.25)
+        self.content_layout.add_widget(self.transaction_panel)
 
         # Now that transaction_panel is created, set it for route_selector
-        route_selector.transaction_panel = transaction_panel
+        self.route_selector.transaction_panel = self.transaction_panel
 
+        self.root_layout.add_widget(self.content_layout)
+        self.add_widget(self.root_layout)
 
-        root_layout.add_widget(content_layout)
-        self.add_widget(root_layout)
+    def on_enter(self):
+        # Remove any existing navigation bar
+        for child in self.root_layout.children[:]:
+            if isinstance(child, (NavBar, UserNavBar)):
+                self.root_layout.remove_widget(child)
+        
+        # Add the correct navigation bar at the top
+        import auth
+        user = auth.getCurrentUser()
+        if user.get('role') == 'admin':
+            self.root_layout.add_widget(NavBar(), index=len(self.root_layout.children))
+        else:
+            self.root_layout.add_widget(UserNavBar(), index=len(self.root_layout.children))
 
     def _update_bg(self, instance, value):
+        print('MainScreen _update_bg')
+        # Only update the canvas, do NOT modify instance.size or instance.pos here!
         instance.canvas.before.clear()
         with instance.canvas.before:
             Color(*gray_bg)
             Rectangle(size=instance.size, pos=instance.pos)
 
-
-class AirlineBookingApp(App):
-    def build(self):
-        # Set window size for desktop
-        Window.size = (1280, 720)
-        Window.minimum_width, Window.minimum_height = 1024, 680
-
-        # Create screen manager
-        sm = ScreenManager()
-        sm.add_widget(MainScreen(name='main'))
-
-        return sm
-
-
-if __name__ == "__main__":
-    AirlineBookingApp().run()
+    def refresh_items(self, instance):
+        self.route_selector.load_routes(get_routes())
