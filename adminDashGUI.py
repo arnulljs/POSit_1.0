@@ -19,6 +19,7 @@ import auth
 from models import User, Admin
 from adminInventory import AdminInventoryScreen
 from adminNav import NavBar
+from tickets import get_routes
 
 
 class HomeScreen(Screen):
@@ -122,7 +123,10 @@ class HomeScreen(Screen):
 # Helper function to get transaction summary for the current day
 def get_daily_transaction_summary():
     today_str = datetime.now().strftime("%Y-%m-%d")
-    filename = f"transactions_{today_str}.xml"
+    transactions_dir = "transactions"
+    if not os.path.exists(transactions_dir):
+        os.makedirs(transactions_dir)
+    filename = os.path.join(transactions_dir, f"transactions_{today_str}.xml")
     total_sales = 0.0
     transaction_count = 0
     error_message = None
@@ -336,10 +340,13 @@ class AdminDashboard(Screen):
             initial_sales_value = "Error"
             initial_transactions_value = "Error"
 
+        # Low and critical stock counts
+        low_stock_count, critical_stock_count = count_low_and_critical_stock()
+
         # Create and store metric cards as instance variables
         self.sales_metric = MetricCard("Today's Sales", initial_sales_value)
         self.transactions_metric = MetricCard("Transactions Today", initial_transactions_value)
-        self.low_stock_metric = MetricCard("Low Stock Items", "8") # Static for now
+        self.low_stock_metric = MetricCard("Low Stock Items", str(low_stock_count))
         self.active_users_metric = MetricCard("Active Users", "12") # Static for now
         
         metrics_grid.add_widget(self.sales_metric)
@@ -363,20 +370,17 @@ class AdminDashboard(Screen):
         alerts_container.bind(minimum_height=alerts_container.setter('height'))
         
         # Sample alerts
-        alerts = [
-            {
-                "message": "Critical Low Stock: Economy Manila-Cebu tickets (5 remaining)",
+        alerts = []
+        if critical_stock_count > 0:
+            alerts.append({
+                "message": f"Critical Stock: {critical_stock_count} item(s) at or below 5 remaining!",
                 "level": "critical"
-            },
-            {
-                "message": "Unusual Transaction: Multiple refunds processed by user jdcruz",
+            })
+        if low_stock_count > 0:
+            alerts.append({
+                "message": f"Low Stock: {low_stock_count} item(s) at or below 10 remaining.",
                 "level": "warning"
-            },
-            {
-                "message": "Low Stock: Business Class Davao-Manila tickets (15 remaining)",
-                "level": "normal"
-            }
-        ]
+            })
         
         for alert in alerts:
             alert_item = AlertItem(alert["message"], alert["level"])
@@ -468,3 +472,18 @@ class AdminDashboard(Screen):
     def logout(self, instance):
         auth.logout()
         self.manager.current = "login"
+
+
+def count_low_and_critical_stock():
+    low_stock = 0
+    critical_stock = 0
+    for item in get_routes():
+        try:
+            avail = int(item.get('availability', 0))
+            if avail <= 10:
+                low_stock += 1
+            if avail <= 5:
+                critical_stock += 1
+        except Exception:
+            continue
+    return low_stock, critical_stock

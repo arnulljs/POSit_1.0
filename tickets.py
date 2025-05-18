@@ -1,11 +1,18 @@
 #this is where tickets will be initialized and stored
 
 routes_data = [
-    {"ticket_id": "TK-001", "from": "Manila", "to": "Cebu", "class": "Economy", "price": 3500, "availability": 5},
-    {"ticket_id": "TK-002", "from": "Manila", "to": "Cebu", "class": "Business", "price": 5800, "availability": 32},
-    {"ticket_id": "TK-003", "from": "Cebu", "to": "Davao", "class": "Economy", "price": 2900, "availability": 58},
-    {"ticket_id": "TK-004", "from": "Manila", "to": "Davao", "class": "Economy", "price": 4200, "availability": 23},
-    {"ticket_id": "TK-005", "from": "Davao", "to": "Manila", "class": "Business", "price": 6500, "availability": 15},
+    {"ticket_id": "EVT-001", "event": "Coldplay", "tier": "Standard Seating", "price": 2500, "availability": 120},
+    {"ticket_id": "EVT-002", "event": "Coldplay", "tier": "Silver Seating", "price": 4000, "availability": 80},
+    {"ticket_id": "EVT-003", "event": "Coldplay", "tier": "Gold Seating", "price": 7000, "availability": 30},
+    {"ticket_id": "EVT-004", "event": "Rex Orange County", "tier": "Standard Seating", "price": 1800, "availability": 100},
+    {"ticket_id": "EVT-005", "event": "Rex Orange County", "tier": "Silver Seating", "price": 3200, "availability": 60},
+    {"ticket_id": "EVT-006", "event": "Rex Orange County", "tier": "Gold Seating", "price": 6000, "availability": 20},
+    {"ticket_id": "EVT-007", "event": "Apo Hiking Society", "tier": "Standard Seating", "price": 1500, "availability": 150},
+    {"ticket_id": "EVT-008", "event": "Apo Hiking Society", "tier": "Silver Seating", "price": 2500, "availability": 90},
+    {"ticket_id": "EVT-009", "event": "Apo Hiking Society", "tier": "Gold Seating", "price": 4000, "availability": 25},
+    {"ticket_id": "EVT-010", "event": "Queen", "tier": "Standard Seating", "price": 3000, "availability": 110},
+    {"ticket_id": "EVT-011", "event": "Queen", "tier": "Silver Seating", "price": 5000, "availability": 70},
+    {"ticket_id": "EVT-012", "event": "Queen", "tier": "Gold Seating", "price": 9000, "availability": 15},
 ]
 
 def get_routes():
@@ -24,8 +31,8 @@ def update_route(index, new_data):
 
 def get_next_ticket_id():
     if not routes_data:
-        return "TK-001"
+        return "EVT-001"
     last_id = sorted(routes_data, key=lambda x: x["ticket_id"]) [-1]["ticket_id"]
     num = int(last_id.split('-')[1]) + 1
-    return f"TK-{num:03d}"
+    return f"EVT-{num:03d}"
 

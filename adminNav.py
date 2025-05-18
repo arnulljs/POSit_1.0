@@ -10,6 +10,7 @@ from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.popup import Popup
+from kivy.uix.dropdown import DropDown
 
 import auth
 from models import User, Admin
@@ -42,16 +43,15 @@ class NavBar(BoxLayout):
         # Navigation buttons
         nav_options = [
             ("Dashboard", self.goto_dashboard),
-            ("Inventory Management", self.goto_inventory),
-            ("Transaction View", self.goto_transaction),
-            ("User Management", self.goto_user_management), # Keep this line
-            ("Reports", self.goto_reports), # Updated this line
-            ("Settings", lambda *_: self.show_popup("Settings")),
+            ("Transactions", self.goto_transaction),
+            ("Inventory", self.goto_inventory),
+            ("Users", self.goto_user_management),
+            ("Reports", self.goto_reports),
         ]
         for name, callback in nav_options:
             btn = Button(
                 text=name,
-                size_hint_x=1,  # Make buttons expand/contract
+                size_hint_x=1,  # Make buttons expand/contract equally
                 background_normal='',
                 background_color=ACCENT_BLUE,
                 color=(1,1,1,1),
@@ -63,11 +63,39 @@ class NavBar(BoxLayout):
         # Spacer
         self.add_widget(BoxLayout())
 
-        # User info
-        user_label = Label(text='Administrator', font_size=dp(14), color=(1,1,1,1), size_hint_x=None, width=dp(120), halign='right')
-        self.add_widget(user_label)
-        avatar = Button(text='A', size_hint=(None, None), size=(dp(32), dp(32)), background_normal='', background_color=ACCENT_BLUE, color=(1,1,1,1), font_size=dp(16))
-        self.add_widget(avatar)
+        # User info with dropdown
+        from kivy.uix.boxlayout import BoxLayout as KivyBoxLayout
+        user_box = KivyBoxLayout(orientation='horizontal', size_hint_x=None, width=dp(150), spacing=dp(8))
+        user_btn = Button(
+            text='Administrator',
+            size_hint=(None, None),
+            size=(dp(90), dp(32)),
+            background_normal='',
+            background_color=ACCENT_BLUE,
+            color=(1,1,1,1),
+            font_size=dp(14)
+        )
+        avatar_btn = Button(
+            text='A',
+            size_hint=(None, None),
+            size=(dp(32), dp(32)),
+            background_normal='',
+            background_color=ACCENT_BLUE,
+            color=(1,1,1,1),
+            font_size=dp(16)
+        )
+        # Dropdown for logout
+        dropdown = DropDown()
+        logout_btn = Button(text='Log out', size_hint_y=None, height=dp(40), background_normal='', background_color=(1,0.3,0.3,1), color=(1,1,1,1))
+        logout_btn.bind(on_release=lambda *a: self.logout(dropdown))
+        dropdown.add_widget(logout_btn)
+        def open_dropdown(instance):
+            dropdown.open(instance)
+        user_btn.bind(on_release=open_dropdown)
+        avatar_btn.bind(on_release=open_dropdown)
+        user_box.add_widget(user_btn)
+        user_box.add_widget(avatar_btn)
+        self.add_widget(user_box)
 
     def show_popup(self, section):
         popup = Popup(title='Navigation',
@@ -116,3 +144,11 @@ class NavBar(BoxLayout):
             sm.add_widget(ReportScreen(name='reports_screen'))
         if sm:
             sm.current = 'reports_screen'
+
+    def logout(self, dropdown):
+        import auth
+        dropdown.dismiss()
+        auth.logout()
+        sm = self.get_screen_manager()
+        if sm:
+            sm.current = 'login'

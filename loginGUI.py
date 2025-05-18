@@ -115,6 +115,30 @@ class LoginScreen(Screen):
         self.login_btn.bind(on_release=self.login)
         form_box.add_widget(self.login_btn)
 
+        # Skip login buttons
+        skip_btns_box = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(40), spacing=dp(10))
+        skip_admin_btn = Button(
+            text="Skip as Admin",
+            size_hint=(0.5, 1),
+            background_normal='',
+            background_color=(0.2, 0.7, 0.3, 1),
+            color=(1, 1, 1, 1),
+            font_size=dp(14)
+        )
+        skip_user_btn = Button(
+            text="Skip as User",
+            size_hint=(0.5, 1),
+            background_normal='',
+            background_color=(0.22, 0.27, 0.74, 0.7),
+            color=(1, 1, 1, 1),
+            font_size=dp(14)
+        )
+        skip_admin_btn.bind(on_release=lambda instance: self.skip_login('admin'))
+        skip_user_btn.bind(on_release=lambda instance: self.skip_login('user'))
+        skip_btns_box.add_widget(skip_admin_btn)
+        skip_btns_box.add_widget(skip_user_btn)
+        form_box.add_widget(skip_btns_box)
+
         # Error message
         self.message = Label(
             text="",
@@ -175,6 +199,15 @@ class LoginScreen(Screen):
                 self.manager.current = "user_dashboard"
         else:
             self.message.text = "Invalid credentials"
+
+    def skip_login(self, role):
+        uname = 'admin' if role == 'admin' else 'user'
+        auth.setUserSession(uname, role)
+        self.message.text = f"Welcome {uname} ({role})"
+        if role == "admin":
+            self.manager.current = "admin_dashboard"
+        else:
+            self.manager.current = "user_dashboard"
 
     def _on_key_down(self, window, key, scancode, codepoint, modifiers):
         # Tab key

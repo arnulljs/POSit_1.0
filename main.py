@@ -43,6 +43,7 @@ from adminDashGUI import AdminDashboard
 import traceback
 from kivy.core.window import Window
 import adminNav
+import auth
 
 class POSitApp(App):
     def build(self):
@@ -56,8 +57,11 @@ class POSitApp(App):
             user1 = User("bro", "bruhh", "admin") #bro is now an admin role and will redirect to admin dashboard
             user2 = User("cro", "lolz", "user") #cro is a user role and will redirect to user dashboard
             admin = Admin("tro", "what")
+            
+            # Add users to both admin.users and auth._users_list
             admin.addUser(user1)
             admin.addUser(user2)
+            auth._users_list.extend([user1, user2, admin])
             print("Users created successfully")
 
             sm = ScreenManager()
@@ -82,3 +86,4 @@ if __name__ == '__main__':
         print("Fatal error in app:")
         print(traceback.format_exc())
         input("Press Enter to exit...")  # This will keep the window open to see the error
+        

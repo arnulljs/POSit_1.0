@@ -4,6 +4,7 @@ from kivy.uix.button import Button
 from kivy.metrics import dp
 from kivy.graphics import Color, Rectangle
 from kivy.uix.popup import Popup
+from kivy.uix.dropdown import DropDown
 
 ACCENT_BLUE = (0.22, 0.27, 0.74, 1)
 
@@ -32,24 +33,50 @@ class UserNavBar(BoxLayout):
 
         # Navigation buttons
         nav_options = [
-            ("Transaction View", self.goto_transaction),
-            ("Inventory Management", self.goto_inventory),
-            ("Reports", lambda *_: self.show_popup("Reports")),
-            ("Settings", lambda *_: self.show_popup("Settings")),
+            ("Transactions", self.goto_transaction),
+            ("Reports", self.goto_reports),
         ]
         for name, callback in nav_options:
-            btn = Button(text=name, size_hint_x=None, width=dp(180), background_normal='', background_color=ACCENT_BLUE, color=(1,1,1,1), font_size=dp(14))
+            btn = Button(text=name, size_hint_x=1, background_normal='', background_color=ACCENT_BLUE, color=(1,1,1,1), font_size=dp(14))
             btn.bind(on_release=callback)
             self.add_widget(btn)
 
         # Spacer
         self.add_widget(BoxLayout())
 
-        # User info
-        user_label = Label(text='User', font_size=dp(14), color=(1,1,1,1), size_hint_x=None, width=dp(120), halign='right')
-        self.add_widget(user_label)
-        avatar = Button(text='U', size_hint=(None, None), size=(dp(32), dp(32)), background_normal='', background_color=ACCENT_BLUE, color=(1,1,1,1), font_size=dp(16))
-        self.add_widget(avatar)
+        # User info with dropdown
+        from kivy.uix.boxlayout import BoxLayout as KivyBoxLayout
+        user_box = KivyBoxLayout(orientation='horizontal', size_hint_x=None, width=dp(150), spacing=dp(8))
+        user_btn = Button(
+            text='User',
+            size_hint=(None, None),
+            size=(dp(90), dp(32)),
+            background_normal='',
+            background_color=ACCENT_BLUE,
+            color=(1,1,1,1),
+            font_size=dp(14)
+        )
+        avatar_btn = Button(
+            text='U',
+            size_hint=(None, None),
+            size=(dp(32), dp(32)),
+            background_normal='',
+            background_color=ACCENT_BLUE,
+            color=(1,1,1,1),
+            font_size=dp(16)
+        )
+        # Dropdown for logout
+        dropdown = DropDown()
+        logout_btn = Button(text='Log out', size_hint_y=None, height=dp(40), background_normal='', background_color=(1,0.3,0.3,1), color=(1,1,1,1))
+        logout_btn.bind(on_release=lambda *a: self.logout(dropdown))
+        dropdown.add_widget(logout_btn)
+        def open_dropdown(instance):
+            dropdown.open(instance)
+        user_btn.bind(on_release=open_dropdown)
+        avatar_btn.bind(on_release=open_dropdown)
+        user_box.add_widget(user_btn)
+        user_box.add_widget(avatar_btn)
+        self.add_widget(user_box)
 
     def show_popup(self, section):
         popup = Popup(title='Navigation',
@@ -66,15 +93,23 @@ class UserNavBar(BoxLayout):
             parent = parent.parent
         return None
 
-    def goto_inventory(self, *_):
-        sm = self.get_screen_manager()
-        if sm and not sm.has_screen('user_inventory'):
-            # You can define and import UserInventoryScreen as needed
-            pass  # Placeholder for actual screen addition
-        if sm:
-            sm.current = 'user_inventory'
-
     def goto_transaction(self, *_):
         sm = self.get_screen_manager()
         if sm:
             sm.current = 'user_dashboard'
+
+    def goto_reports(self, *_):
+        sm = self.get_screen_manager()
+        if sm and not sm.has_screen('reports_screen'):
+            from reportsGUI import ReportScreen # Local import
+            sm.add_widget(ReportScreen(name='reports_screen'))
+        if sm:
+            sm.current = 'reports_screen'
+
+    def logout(self, dropdown):
+        import auth
+        dropdown.dismiss()
+        auth.logout()
+        sm = self.get_screen_manager()
+        if sm:
+            sm.current = 'login'

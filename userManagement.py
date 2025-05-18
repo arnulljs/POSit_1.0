@@ -6,105 +6,89 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.spinner import Spinner # For role selection
+from kivy.uix.spinner import Spinner
 from kivy.metrics import dp
-from kivy.graphics import Color, Rectangle, Line
-from adminNav import NavBar # Assuming NavBar is in adminNav.py
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Line
+from adminNav import NavBar
+from models import User, Admin
+import auth
+from kivy.uix.image import Image
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.widget import Widget
 
 # Placeholder for accent color, adapt as needed
 ACCENT_BLUE = (0.22, 0.27, 0.74, 1)
+LIGHT_GRAY_BG = (0.95, 0.95, 0.95, 1)
+WHITE = (1, 1, 1, 1)
 
-# --- Placeholder User Data Management ---
-# In a real app, these would interact with auth.py or a database
-
-_users_db = [
-    {'user_id': 'USR001', 'username': 'admin_user', 'role': 'admin', 'password_hash': 'hashed_password_admin'},
-    {'user_id': 'USR002', 'username': 'standard_user1', 'role': 'user', 'password_hash': 'hashed_password_user1'},
-    {'user_id': 'USR003', 'username': 'another_user', 'role': 'user', 'password_hash': 'hashed_password_user2'},
-]
-_next_user_id_counter = 4
-
-def get_users_mock():
+def get_users():
     """Returns a list of all users."""
-    return list(_users_db)
+    return auth.get_users()
 
-def get_next_user_id_mock():
-    """Generates a new user ID."""
-    global _next_user_id_counter
-    new_id = f"USR{_next_user_id_counter:03d}"
-    _next_user_id_counter += 1
-    return new_id
-
-def add_user_mock(user_data):
+def add_user(user_data):
     """Adds a new user. user_data should include 'username', 'password', 'role'."""
-    # In a real app, hash the password before storing
-    new_user = {
-        'user_id': user_data.get('user_id', get_next_user_id_mock()),
-        'username': user_data['username'],
-        # Map 'Admin' to 'admin' and 'Cashier' to 'user'
-        'role': 'admin' if user_data['role'].lower() == 'admin' else 'user',
-        'password_hash': f"hashed_{user_data['password']}" # Placeholder for hashing
-    }
-    _users_db.append(new_user)
-    print(f"User added: {new_user}")
+    # Create a new User or Admin object based on role
+    role = user_data['role'].lower()
+    if role == 'admin':
+        new_user = Admin(user_data['username'], user_data['password'])  # Admin class automatically sets role to "admin"
+    else:
+        new_user = User(user_data['username'], user_data['password'], role)  # User class needs role specified
+    
+    auth._users_list.append(new_user)
+    print(f"User added: {new_user.username} ({new_user.role})")
 
-def update_user_mock(user_id, update_data):
-    """Updates an existing user. update_data can include 'username', 'password', 'role'."""
-    for user in _users_db:
-        if user['user_id'] == user_id:
+def update_user(user_id, update_data):
+    """Updates an existing user."""
+    for user in auth._users_list:
+        if user.username == user_id:  # Using username as ID
             if 'username' in update_data:
-                user['username'] = update_data['username']
-            if 'role' in update_data:
-                # Map 'Admin' to 'admin' and 'Cashier' to 'user'
-                user['role'] = 'admin' if update_data['role'].lower() == 'admin' else 'user'
-            if 'password' in update_data and update_data['password']: # Only update password if provided
-                user['password_hash'] = f"hashed_{update_data['password']}" # Placeholder
-            print(f"User updated: {user}")
+                user.username = update_data['username']
+            if 'password' in update_data and update_data['password']:
+                user.hashPass = update_data['password']  # In real app, hash this
+            print(f"User updated: {user.username} ({user.role})")
             return True
     return False
 
-def remove_user_mock(user_id):
-    """Removes a user by user_id."""
-    global _users_db
-    _users_db = [user for user in _users_db if user['user_id'] != user_id]
+def remove_user(user_id):
+    """Removes a user by username."""
+    auth._users_list[:] = [user for user in auth._users_list if user.username != user_id]
     print(f"User removed: {user_id}")
-
-# --- End Placeholder User Data Management ---
 
 class UserEditPopup(Popup):
     def __init__(self, user=None, on_save=None, **kwargs):
         super().__init__(**kwargs)
         self.title = 'Edit User' if user else 'Add New User'
         self.size_hint = (0.5, 0.7)
-        self.user = user or {}
+        self.user = user
         self.on_save = on_save
 
         layout = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
 
-        self.user_id_input = TextInput(
-            text=self.user.get('user_id', get_next_user_id_mock()),
-            hint_text='User ID', multiline=False, readonly=True,
-            size_hint_y=None, height=dp(40)
-        )
         self.username_input = TextInput(
-            text=self.user.get('username', ''), hint_text='Username',
-            multiline=False, size_hint_y=None, height=dp(40)
+            text=user.username if user else '',
+            hint_text='Username',
+            multiline=False,
+            size_hint_y=None,
+            height=dp(40)
         )
+        
         # For password, only prompt for new password. If blank on edit, don't change.
         password_hint = 'New Password (leave blank to keep current)' if user else 'Password'
         self.password_input = TextInput(
-            hint_text=password_hint, multiline=False, password=True,
-            size_hint_y=None, height=dp(40)
+            hint_text=password_hint,
+            multiline=False,
+            password=True,
+            size_hint_y=None,
+            height=dp(40)
         )
+        
         self.role_spinner = Spinner(
-            # Display 'Admin' for 'admin' role, 'Cashier' for 'user' role. Default to 'Cashier'.
-            text='Admin' if self.user.get('role', 'user') == 'admin' else 'Cashier',
-            values=('Admin', 'Cashier'), # Roles available in UI
-            size_hint_y=None, height=dp(44) # Spinners need a bit more height
+            text='Admin' if user and user.role == 'admin' else 'Cashier',
+            values=('Admin', 'Cashier'),
+            size_hint_y=None,
+            height=dp(44)
         )
 
-        layout.add_widget(Label(text='User ID', size_hint_y=None, height=dp(20)))
-        layout.add_widget(self.user_id_input)
         layout.add_widget(Label(text='Username', size_hint_y=None, height=dp(20)))
         layout.add_widget(self.username_input)
         layout.add_widget(Label(text='Password', size_hint_y=None, height=dp(20)))
@@ -112,7 +96,7 @@ class UserEditPopup(Popup):
         layout.add_widget(Label(text='Role', size_hint_y=None, height=dp(20)))
         layout.add_widget(self.role_spinner)
 
-        layout.add_widget(BoxLayout(size_hint_y=1)) # Spacer
+        layout.add_widget(BoxLayout(size_hint_y=1))  # Spacer
 
         btn_layout = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
         save_btn = Button(text='Save', on_release=self.save_user)
@@ -126,21 +110,18 @@ class UserEditPopup(Popup):
     def save_user(self, instance):
         # Basic validation
         if not self.username_input.text.strip():
-            # Simple error feedback, could be a small popup too
             print("Error: Username cannot be empty.")
             return
-        if not self.user and not self.password_input.text: # Password required for new user
-             print("Error: Password cannot be empty for new user.")
-             return
+        if not self.user and not self.password_input.text:  # Password required for new user
+            print("Error: Password cannot be empty for new user.")
+            return
 
         data = {
-            'user_id': self.user_id_input.text.strip(),
             'username': self.username_input.text.strip(),
-            # Convert UI role ('Admin'/'Cashier') to internal role ('admin'/'user')
             'role': 'admin' if self.role_spinner.text == 'Admin' else 'user',
-            # Only include password if it's a new user or if text is entered for an existing one
             'password': self.password_input.text if self.password_input.text or not self.user else None
         }
+        
         # Filter out None password if not provided for update
         if data['password'] is None:
             del data['password']
@@ -149,22 +130,26 @@ class UserEditPopup(Popup):
             self.on_save(data, is_new_user=(not self.user))
         self.dismiss()
 
+class IconButton(ButtonBehavior, Image):
+    pass
+
 class UserManagementScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Set background color to LIGHT_GRAY_BG at the Screen level
         with self.canvas.before:
-            Color(1, 1, 1, 1)  # White background
+            Color(*LIGHT_GRAY_BG)
             self.bg_rect = Rectangle(size=self.size, pos=self.pos)
         self.bind(size=self._update_bg, pos=self._update_bg)
 
         self.layout = BoxLayout(orientation='vertical')
-        self.layout.add_widget(NavBar()) # Add NavBar
+        self.layout.add_widget(NavBar())
 
-        content_area = BoxLayout(orientation='vertical', padding=[dp(20), dp(10)], spacing=dp(15))
+        content_area = BoxLayout(orientation='vertical', padding=[dp(32), dp(32), dp(32), dp(32)], spacing=dp(24), size_hint=(1, 1))
 
         title_layout = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(60))
         title = Label(text='User Management', font_size=dp(20), bold=True, color=(0,0,0,1), halign='left', valign='bottom', size_hint_y=None, height=dp(30))
-        title.bind(texture_size=title.setter('size')) # Ensure text fits
+        title.bind(texture_size=title.setter('size'))
         title_layout.add_widget(title)
         subtitle = Label(text='Add, modify, and manage user accounts and permissions', font_size=dp(14), color=(0,0,0,0.6), halign='left', valign='top', size_hint_y=None, height=dp(30))
         subtitle.bind(texture_size=subtitle.setter('size'))
@@ -172,28 +157,70 @@ class UserManagementScreen(Screen):
         content_area.add_widget(title_layout)
 
         action_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(10))
-        self.search_input = TextInput(hint_text='Search users (by username or role)...', multiline=False, size_hint_x=0.7)
+        self.search_input = TextInput(
+            hint_text='Search users (by username or role)...',
+            multiline=False,
+            size_hint_x=0.7,
+            background_color=(0,0,0,0),
+            background_normal='',
+            foreground_color=(0,0,0,1),
+            cursor_color=ACCENT_BLUE,
+            padding=[dp(5), dp(10), dp(5), dp(10)]
+        )
+        # Add a bottom border using canvas.after
+        with self.search_input.canvas.after:
+            Color(0, 0, 0, 1)
+            self._search_border_line = Line(points=[], width=1.2)
+        def update_search_border(instance, value):
+            x, y = instance.x, instance.y
+            w = instance.width
+            self._search_border_line.points = [x, y, x + w, y]
+        self.search_input.bind(pos=update_search_border, size=update_search_border)
         self.search_input.bind(text=lambda instance, value: self.refresh_user_table())
         action_bar.add_widget(self.search_input)
 
-        add_user_btn = Button(text='+ Add New User', size_hint_x=0.3, background_color=ACCENT_BLUE, color=(1,1,1,1))
+        add_user_btn = Button(
+            text='+ Add New User',
+            size_hint_x=0.3,
+            background_color=ACCENT_BLUE,
+            background_normal='',
+            color=(1,1,1,1)
+        )
+        def on_add_btn_press(instance):
+            instance.background_color = (0.16, 0.20, 0.55, 1)
+        def on_add_btn_release(instance):
+            instance.background_color = ACCENT_BLUE
+        add_user_btn.bind(on_press=on_add_btn_press, on_release=on_add_btn_release)
         add_user_btn.bind(on_release=self.open_add_user_popup)
         action_bar.add_widget(add_user_btn)
         content_area.add_widget(action_bar)
 
+        # Table in a white rounded rectangle card
+        table_card = BoxLayout(orientation='vertical', size_hint=(1, 1), padding=[dp(16), dp(16), dp(16), dp(16)], spacing=dp(0))
+        with table_card.canvas.before:
+            Color(*WHITE)
+            table_card.bg_rect = RoundedRectangle(size=table_card.size, pos=table_card.pos, radius=[(dp(16), dp(16))] * 4)
+        table_card.bind(size=lambda instance, value: setattr(instance.bg_rect, 'size', instance.size))
+        table_card.bind(pos=lambda instance, value: setattr(instance.bg_rect, 'pos', instance.pos))
+
         # Table Header
-        header = GridLayout(cols=4, size_hint_y=None, height=dp(40), spacing=dp(1))
-        header_cols = ['User ID', 'Username', 'Role', 'Actions']
-        for col_text in header_cols:
-            header.add_widget(Label(text=col_text, bold=True, color=(0,0,0,0.8)))
-        content_area.add_widget(header)
+        header = GridLayout(cols=3, size_hint_y=None, height=dp(40), spacing=dp(1))
+        header.size_hint_x = 1
+        header_col_hints = [1.2, 1, 0.6]
+        header_cols = ['Username', 'Role', 'Actions']
+        for i, col_text in enumerate(header_cols):
+            header.add_widget(Label(text=col_text, bold=True, color=(0,0,0,0.8), size_hint_x=header_col_hints[i]))
+        table_card.add_widget(header)
 
         # User Table (Scrollable)
         self.scroll_view = ScrollView(size_hint=(1, 1))
-        self.user_table = GridLayout(cols=4, size_hint_y=None, spacing=dp(1), row_default_height=dp(40), row_force_default=True)
+        self.user_table = GridLayout(cols=3, size_hint_y=None, spacing=dp(1), row_default_height=dp(40), row_force_default=True)
+        self.user_table.size_hint_x = 1
+        self.user_col_hints = [1.2, 1, 0.6]
         self.user_table.bind(minimum_height=self.user_table.setter('height'))
         self.scroll_view.add_widget(self.user_table)
-        content_area.add_widget(self.scroll_view)
+        table_card.add_widget(self.scroll_view)
+        content_area.add_widget(table_card)
 
         self.layout.add_widget(content_area)
         self.add_widget(self.layout)
@@ -212,70 +239,78 @@ class UserManagementScreen(Screen):
     def refresh_user_table(self):
         self.user_table.clear_widgets()
         search_term = self.search_input.text.strip().lower()
-        users = get_users_mock()
+        users = get_users()
 
-        for idx, user_data in enumerate(users):
-            if search_term and not (search_term in user_data['username'].lower() or \
-                                   search_term in user_data['user_id'].lower() or \
-                                   search_term in user_data['role'].lower()):
+        for idx, user in enumerate(users):
+            if search_term and not (search_term in user.username.lower() or \
+                                   search_term in user.role.lower()):
                 continue
 
-            row_bg_color = (0.95, 0.95, 0.95, 1) if idx % 2 == 0 else (1, 1, 1, 1)
-
-            # User ID
-            uid_label = Label(text=user_data['user_id'], color=(0,0,0,1))
-            uid_label.row_bg_color = row_bg_color
-            uid_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.user_table.add_widget(uid_label)
+            # Row with alternating background (white and light blue)
+            row_bg_color = (1, 1, 1, 1) if idx % 2 == 0 else (0.22, 0.27, 0.74, 0.08)
 
             # Username
-            uname_label = Label(text=user_data['username'], color=(0,0,0,1))
+            uname_label = Label(text=user.username, color=(0,0,0,1), size_hint_x=self.user_col_hints[0])
+            with uname_label.canvas.before:
+                Color(*row_bg_color)
+                Rectangle(size=uname_label.size, pos=uname_label.pos)
             uname_label.row_bg_color = row_bg_color
             uname_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
             self.user_table.add_widget(uname_label)
 
             # Role
-            # Display 'Admin' for 'admin' role, 'Cashier' for 'user' role
-            display_role = 'Admin' if user_data['role'] == 'admin' else 'Cashier'
-            role_label = Label(text=display_role, color=(0,0,0,1))
+            display_role = 'Admin' if user.role == 'admin' else 'Cashier'
+            role_label = Label(text=display_role, color=(0,0,0,1), size_hint_x=self.user_col_hints[1])
+            with role_label.canvas.before:
+                Color(*row_bg_color)
+                Rectangle(size=role_label.size, pos=role_label.pos)
             role_label.row_bg_color = row_bg_color
             role_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
             self.user_table.add_widget(role_label)
 
             # Actions
-            actions_layout = BoxLayout(orientation='horizontal', spacing=dp(5), padding=(dp(5),0))
-            actions_layout.row_bg_color = row_bg_color # Important for background
+            actions_layout = BoxLayout(orientation='horizontal', spacing=dp(6), padding=(0,0,0,0), size_hint_x=self.user_col_hints[2], size_hint_y=1)
+            with actions_layout.canvas.before:
+                Color(*row_bg_color)
+                Rectangle(size=actions_layout.size, pos=actions_layout.pos)
+            actions_layout.row_bg_color = row_bg_color
             actions_layout.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
 
-            edit_btn = Button(text='Edit', size_hint_x=None, width=dp(70))
-            edit_btn.bind(on_release=lambda instance, u=user_data: self.open_edit_user_popup(u))
+            # Add left spacer
+            actions_layout.add_widget(Widget())
+            # Edit button (icon)
+            edit_btn = IconButton(source='icons/edit.png', size_hint=(None, None), width=dp(24), height=dp(24))
+            edit_btn.bind(on_release=lambda instance, u=user: self.open_edit_user_popup(u))
             actions_layout.add_widget(edit_btn)
 
-            delete_btn = Button(text='Delete', size_hint_x=None, width=dp(70), background_color=(0.9,0.2,0.2,1)) # Reddish
-            delete_btn.bind(on_release=lambda instance, u_id=user_data['user_id']: self.confirm_delete_user(u_id))
+            # Delete button (icon)
+            delete_btn = IconButton(source='icons/delete.png', size_hint=(None, None), width=dp(24), height=dp(24))
+            delete_btn.bind(on_release=lambda instance, u=user: self.confirm_delete_user(u.username))
             actions_layout.add_widget(delete_btn)
-            
+            # Add right spacer
+            actions_layout.add_widget(Widget())
+
             self.user_table.add_widget(actions_layout)
 
     def open_add_user_popup(self, instance):
         def save_callback(data, is_new_user):
-            add_user_mock(data)
+            add_user(data)
             self.refresh_user_table()
 
         popup = UserEditPopup(user=None, on_save=save_callback)
         popup.open()
 
-    def open_edit_user_popup(self, user_data):
+    def open_edit_user_popup(self, user):
         def save_callback(data, is_new_user):
-            update_user_mock(user_data['user_id'], data)
+            update_user(user.username, data)
             self.refresh_user_table()
 
-        popup = UserEditPopup(user=user_data, on_save=save_callback)
+        popup = UserEditPopup(user=user, on_save=save_callback)
         popup.open()
 
-    def confirm_delete_user(self, user_id):
+    def confirm_delete_user(self, username):
         content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
-        content.add_widget(Label(text=f"Are you sure you want to delete user {user_id}?\nThis action cannot be undone.", halign='center'))
+        content.add_widget(Label(text=f"Are you sure you want to delete user {username}?\nThis action cannot be undone.", halign='center'))
         
         btn_layout = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
         confirm_btn = Button(text='Delete', background_color=(0.9,0.2,0.2,1))
@@ -287,7 +322,7 @@ class UserManagementScreen(Screen):
         popup = Popup(title='Confirm Deletion', content=content, size_hint=(0.4, 0.3))
         
         def do_delete(*args):
-            remove_user_mock(user_id)
+            remove_user(username)
             self.refresh_user_table()
             popup.dismiss()
 
@@ -295,7 +330,7 @@ class UserManagementScreen(Screen):
         cancel_btn.bind(on_release=popup.dismiss)
         popup.open()
 
-if __name__ == '__main__': # For testing this screen directly
+if __name__ == '__main__':
     from kivy.app import App
     class TestApp(App):
         def build(self):

@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<DailyTransactions>
+	<Transaction>
+		<TransactionID>00001</TransactionID>
+		<Timestamp>2025-05-19 01:31:05</Timestamp>
+		<Items>
+			<Item>
+				<Route>Manila-Cebu</Route>
+				<Class>Business</Class>
+				<Quantity>6</Quantity>
+				<PricePerItem>5800.00</PricePerItem>
+				<ItemTotal>34800.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>34800.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>4176.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>38976.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>55000000.00</CashTendered>
+			<Change>54961024.00</Change>
+		</Payment>
+	</Transaction>
+</DailyTransactions>

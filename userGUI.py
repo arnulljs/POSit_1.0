@@ -15,6 +15,7 @@ from kivy.properties import NumericProperty, ListProperty, StringProperty, Objec
 from kivy.animation import Animation
 from kivy.uix.popup import Popup # Import Popup
 from kivy.uix.textinput import TextInput # Import TextInput
+from kivy.uix.widget import Widget # Import Widget
 import xml.etree.ElementTree as ET # Import ElementTree for XML
 import os # For path operations
 import traceback # For detailed error logging
@@ -77,7 +78,7 @@ class QuantityPopup(Popup):
         content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
 
         # Label to show item name
-        item_label = Label(text=f"Item: {item_data['route']} ({item_data['class']})",
+        item_label = Label(text=f"Item: {item_data['event']} ({item_data['tier']})",
                            size_hint_y=None, height=dp(30), color=white)  # Changed text color to white
         content.add_widget(item_label)
 
@@ -231,26 +232,26 @@ class CheckoutPopup(Popup):
 
         # Add items list
         for item in self.transaction_panel.transaction_items:
-            item_details = f"- {item['route']} ({item['class']}) x{item['quantity']} @ ₱{item['price']:,.2f} each"
+            item_details = f"- {item['event']} ({item['tier']}) x{item['quantity']} @ ₱{item['price']:.2f} each"
             details_layout.add_widget(Label(text=item_details, size_hint_y=None, height=dp(20), halign='left', color=white)) # Changed text color to white
 
         details_layout.add_widget(Label(text="", size_hint_y=None, height=dp(10))) # Spacer
 
         # Add summary details
-        details_layout.add_widget(Label(text=f"Subtotal: ₱{self.transaction_panel.subtotal:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
-        details_layout.add_widget(Label(text=f"Tax ({TAX_RATE*100:.0f}%): ₱{self.transaction_panel.tax:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"Subtotal: ₱{self.transaction_panel.subtotal:.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"Tax ({TAX_RATE*100:.0f}%): ₱{self.transaction_panel.tax:.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
 
         # Add Discount Title and Amount
         details_layout.add_widget(Label(text=f"Discount Applied: {self.transaction_panel.selected_discount['title']}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Added Discount Title
-        details_layout.add_widget(Label(text=f"Discount Amount: -₱{self.transaction_panel.discount_amount:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"Discount Amount: -₱{self.transaction_panel.discount_amount:.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
 
-        details_layout.add_widget(Label(text=f"TOTAL: ₱{self.transaction_panel.total:,.2f}", size_hint_y=None, height=dp(30), halign='left', color=white, bold=True)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"TOTAL: ₱{self.transaction_panel.total:.2f}", size_hint_y=None, height=dp(30), halign='left', color=white, bold=True)) # Changed text color to white
         details_layout.add_widget(Label(text=f"Payment Method: {self.transaction_panel.selected_payment_method}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
         
         # Robust cash tendered display
         try:
             cash_tendered_display_float = float(self.transaction_panel.cash_tendered)
-            cash_tendered_display_text = f"₱{cash_tendered_display_float:,.2f}"
+            cash_tendered_display_text = f"₱{cash_tendered_display_float:.2f}"
         except ValueError:
             cash_tendered_display_text = "Invalid Cash Amount"
         details_layout.add_widget(Label(text=f"Cash Tendered: {cash_tendered_display_text}", size_hint_y=None, height=dp(25), halign='left', color=white))
@@ -259,7 +260,7 @@ class CheckoutPopup(Popup):
         try:
             cash_tendered_float = float(self.transaction_panel.cash_tendered)
             change = cash_tendered_float - self.transaction_panel.total
-            change_text = f"Change: ₱{change:,.2f}" if change >= 0 else "Change: Insufficient Cash"
+            change_text = f"Change: ₱{change:.2f}" if change >= 0 else "Change: Insufficient Cash"
         except ValueError:
             change_text = "Change: Invalid Cash Amount"
         details_layout.add_widget(Label(text=change_text, size_hint_y=None, height=dp(30), halign='left', color=white, bold=True))
@@ -350,13 +351,14 @@ class CheckoutPopup(Popup):
 
             # Populate the current transaction_element
             ET.SubElement(transaction_element, "TransactionID").text = tp.transaction_id_text
-            ET.SubElement(transaction_element, "Timestamp").text = date.today().strftime("%Y-%m-%d %H:%M:%S") # More precise
+            from datetime import datetime
+            ET.SubElement(transaction_element, "Timestamp").text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             items_xml = ET.SubElement(transaction_element, "Items")
             for item in tp.transaction_items:
                 item_xml = ET.SubElement(items_xml, "Item")
-                ET.SubElement(item_xml, "Route").text = item['route']
-                ET.SubElement(item_xml, "Class").text = item['class']
+                ET.SubElement(item_xml, "Event").text = item['event']
+                ET.SubElement(item_xml, "Tier").text = item['tier']
                 ET.SubElement(item_xml, "Quantity").text = str(item['quantity'])
                 ET.SubElement(item_xml, "PricePerItem").text = f"{item['price']:.2f}"
                 ET.SubElement(item_xml, "ItemTotal").text = f"{item['price'] * item['quantity']:.2f}"
@@ -384,7 +386,10 @@ class CheckoutPopup(Popup):
 
             # --- Logic for daily XML file ---
             today_str = date.today().strftime("%Y-%m-%d")
-            daily_filename = f"transactions_{today_str}.xml"
+            transactions_dir = "transactions"
+            if not os.path.exists(transactions_dir):
+                os.makedirs(transactions_dir)
+            daily_filename = os.path.join(transactions_dir, f"transactions_{today_str}.xml")
             print(f"[XML SAVE] Daily filename: {daily_filename}")
 
             daily_root_tag = "DailyTransactions"
@@ -428,7 +433,6 @@ class CheckoutPopup(Popup):
             return False, f"XML generation/write error: {str(e)}\nSee console for details."
 
 class RouteSelector(BoxLayout):
-    # Modified __init__ to accept transaction_panel instance
     def __init__(self, transaction_panel, **kwargs):
         print('RouteSelector __init__')
         super(RouteSelector, self).__init__(**kwargs)
@@ -437,6 +441,7 @@ class RouteSelector(BoxLayout):
         self.padding = dp(15)
         self.size_hint_y = 1
         self.transaction_panel = transaction_panel # Store the transaction panel instance
+        self.selected_card_key = None  # Track selected card (event, tier)
 
         # Add a white background with rounded corners
         with self.canvas.before:
@@ -444,43 +449,70 @@ class RouteSelector(BoxLayout):
             self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(5)])
         self.bind(size=self._update_rect, pos=self._update_rect)
 
-        # Add filter tabs at the top
-        self.add_filter_tabs()
+        # Placeholders for filter button references
+        self.tier_filter_buttons = []
+        self.artist_filter_buttons = []
+        self.filter_layout = None
+        self.selected_tier = 'All Tiers'
+        self.selected_artist = 'All Artists'
 
-        # Add route cards in a scrollview
+        # Build filter tabs and add as first widget
+        self.build_filter_tabs()
+
+        # Add route cards in a scrollview (always after filter bars)
         self.route_container = GridLayout(cols=2, spacing=dp(15), size_hint_y=None)
         self.route_container.bind(minimum_height=self.route_container.setter('height'))
 
-        scrollview = ScrollView(size_hint=(1, 1))
-        scrollview.add_widget(self.route_container)
-        self.add_widget(scrollview)
+        self.scrollview = ScrollView(size_hint=(1, 1))
+        self.scrollview.add_widget(self.route_container)
+        self.add_widget(self.scrollview)
 
         # Load routes
-        self.load_routes(get_routes())
+        self.filter_routes()
 
-    def _update_rect(self, instance, value):
-        instance.rect.size = instance.size
-        instance.rect.pos = instance.pos
+    def build_filter_tabs(self):
+        # Remove old filter layout if it exists
+        if self.filter_layout and self.filter_layout in self.children:
+            self.remove_widget(self.filter_layout)
+        self.tier_filter_buttons = []
+        self.artist_filter_buttons = []
 
-    def add_filter_tabs(self):
-        tab_layout = BoxLayout(size_hint=(1, None), height=dp(50), spacing=dp(5), padding=[0, 0, 0, 0])
+        # Get unique tiers and artists from current routes
+        routes = get_routes()
+        tiers = sorted(set(route['tier'] for route in routes))
+        artists = sorted(set(route['event'] for route in routes))
+        tiers = ['All Tiers'] + tiers
+        artists = ['All Artists'] + artists
 
-        # Create tab buttons
-        tabs = ["All Routes", "Manila-Cebu", "Cebu-Manila", "Manila-Davao", "Cebu-Davao", "Davao-Cebu", "Davao-Manila"]
+        # Create main filter layout with horizontal padding
+        filter_layout = BoxLayout(orientation='vertical', size_hint=(1, None), height=dp(120), spacing=dp(5), padding=[dp(10), 0, dp(10), 0])
+        self.filter_layout = filter_layout
 
-        for i, tab in enumerate(tabs):
+        # Tier filter tabs
+        tier_layout = BoxLayout(size_hint=(1, None), height=dp(40), spacing=dp(5), padding=[0, 0, 0, 0])
+        tier_label = Label(
+            text="Filter by Tier:",
+            size_hint=(None, 1),
+            width=dp(90),
+            color=black,
+            halign='left',
+            valign='middle'
+        )
+        tier_layout.add_widget(tier_label)
+        for tier in tiers:
             btn = ToggleButton(
-                text=tab,
-                group="filter_tabs",
-                size_hint=(1, 1),  # Make tabs expand equally
+                text=tier,
+                group="tier_tabs",
+                size_hint=(1, 1),
                 font_size=sp(14),
                 background_normal="",
                 background_down="",
-                color=black if i > 0 else white,
-                bold=False
+                background_color=(0,0,0,0),
+                color=black,
+                bold=False,
+                padding=[dp(8), 0]
             )
-            # Customize appearance based on index
-            if i == 0:  # First tab is selected
+            if tier == self.selected_tier:
                 btn.state = "down"
                 with btn.canvas.before:
                     Color(*normal_color)
@@ -490,13 +522,55 @@ class RouteSelector(BoxLayout):
                     Color(0.9, 0.9, 0.9, 1)
                     RoundedRectangle(size=btn.size, pos=btn.pos, radius=[dp(5)])
             btn.bind(size=self._update_tab_bg, pos=self._update_tab_bg, state=self._update_tab_state)
-            tab_layout.add_widget(btn)
+            btn.bind(on_press=lambda x, t=tier: self.set_tier_filter(t))
+            tier_layout.add_widget(btn)
+            self.tier_filter_buttons.append(btn)
 
-        # Spacer to push the button to the right
-        from kivy.uix.widget import Widget
-        tab_layout.add_widget(Widget(size_hint_x=0.2))  # Flexible spacer
+        # Artist filter tabs (scrollable)
+        artist_scroll = ScrollView(size_hint=(1, None), height=dp(40), do_scroll_x=True, do_scroll_y=False, bar_width=dp(6))
+        artist_layout = BoxLayout(size_hint=(None, 1), height=dp(40), spacing=dp(5), padding=[0, 0, 0, 0])
+        artist_layout.bind(minimum_width=artist_layout.setter('width'))
+        artist_label = Label(
+            text="Filter by Artist:",
+            size_hint=(None, 1),
+            width=dp(90),
+            color=black,
+            halign='left',
+            valign='middle'
+        )
+        artist_layout.add_widget(artist_label)
+        for artist in artists:
+            btn = ToggleButton(
+                text=artist,
+                group="artist_tabs",
+                size_hint=(None, 1),
+                width=dp(140),
+                font_size=sp(14),
+                background_normal="",
+                background_down="",
+                background_color=(0,0,0,0),
+                color=black,
+                bold=False,
+                padding=[dp(8), 0]
+            )
+            if artist == self.selected_artist:
+                btn.state = "down"
+                with btn.canvas.before:
+                    Color(*normal_color)
+                    RoundedRectangle(size=btn.size, pos=btn.pos, radius=[dp(5)])
+            else:
+                with btn.canvas.before:
+                    Color(0.9, 0.9, 0.9, 1)
+                    RoundedRectangle(size=btn.size, pos=btn.pos, radius=[dp(5)])
+            btn.bind(size=self._update_tab_bg, pos=self._update_tab_bg, state=self._update_tab_state)
+            btn.bind(on_press=lambda x, a=artist: self.set_artist_filter(a))
+            artist_layout.add_widget(btn)
+            self.artist_filter_buttons.append(btn)
+        artist_scroll.add_widget(artist_layout)
 
-        # Add the refresh button
+        # Add refresh button to the right
+        refresh_layout = BoxLayout(size_hint=(1, None), height=dp(40), spacing=dp(5), padding=[0, 0, 0, 0])
+        refresh_layout.add_widget(Widget(size_hint_x=0.7))  # Spacer
         refresh_btn = Button(
             text="Refresh Items",
             size_hint=(None, 1),
@@ -508,9 +582,19 @@ class RouteSelector(BoxLayout):
             border=(16, 16, 16, 16)
         )
         refresh_btn.bind(on_release=lambda instance: self.load_routes(get_routes()))
-        tab_layout.add_widget(refresh_btn)
+        refresh_layout.add_widget(refresh_btn)
 
-        self.add_widget(tab_layout)
+        # Add all layouts to the main filter layout
+        filter_layout.add_widget(tier_layout)
+        filter_layout.add_widget(artist_scroll)
+        filter_layout.add_widget(refresh_layout)
+
+        # Always add filter bars as the first widget (at the top)
+        self.add_widget(filter_layout, index=0)
+
+    def _update_rect(self, instance, value):
+        instance.rect.size = instance.size
+        instance.rect.pos = instance.pos
 
     def _update_tab_bg(self, instance, value):
         instance.canvas.before.clear()
@@ -529,19 +613,43 @@ class RouteSelector(BoxLayout):
         else:
             instance.color = black
 
+    def set_tier_filter(self, tier):
+        self.selected_tier = tier
+        for btn in self.tier_filter_buttons:
+            btn.state = 'down' if btn.text == tier else 'normal'
+            self._update_tab_bg(btn, btn.size)
+            self._update_tab_state(btn, btn.state)
+        self.filter_routes()
+
+    def set_artist_filter(self, artist):
+        self.selected_artist = artist
+        for btn in self.artist_filter_buttons:
+            btn.state = 'down' if btn.text == artist else 'normal'
+            self._update_tab_bg(btn, btn.size)
+            self._update_tab_state(btn, btn.state)
+        self.filter_routes()
+
+    def filter_routes(self):
+        routes = get_routes()
+        filtered = []
+        for route in routes:
+            if (self.selected_tier == 'All Tiers' or route['tier'] == self.selected_tier) and \
+               (self.selected_artist == 'All Artists' or route['event'] == self.selected_artist):
+                filtered.append(route)
+        self.load_routes(filtered)
+
     def load_routes(self, routes):
         self.route_container.clear_widgets()
         for ticket in routes:
             card = self.create_route_card(
-                ticket["from"],
-                ticket["to"],
-                ticket["class"],
+                ticket["event"],
+                ticket["tier"],
                 ticket["price"],
                 ticket["availability"]
             )
             self.route_container.add_widget(card)
 
-    def create_route_card(self, from_city, to_city, travel_class, price, available=True):
+    def create_route_card(self, event, tier, price, available=True):
         card = BoxLayout(
             orientation='vertical',
             size_hint=(1, None),
@@ -549,17 +657,17 @@ class RouteSelector(BoxLayout):
             padding=dp(10)
         )
 
-        # Create border based on travel class and store original color
-        border_color = (0, 0.7, 0.7, 1) if travel_class == "Business" else (1, 0.7, 0, 1)
+        # Create border based on tier and store original color
+        border_color = (0.85, 0.7, 0.1, 1) if tier == "Gold Seating" else ((0.75, 0.75, 0.75, 1) if tier == "Silver Seating" else (0.4, 0.4, 0.4, 1))
         card.original_border_color = border_color # Store original color
 
         with card.canvas.before:
+            # Always use white background
             Color(*white)
             self.card_rect = RoundedRectangle(size=card.size, pos=card.pos, radius=[dp(8)])
 
-            # Add border
-            Color(*border_color, group='color_border') # Added group for animation
-            # Store the border instruction for animation
+            # Add border with tier color
+            Color(*border_color, group='color_border')
             card.border_instruction = RoundedRectangle(
                 size=card.size, pos=card.pos, radius=[dp(8)],
                 line_width=dp(1.5) if available else dp(0),
@@ -569,51 +677,42 @@ class RouteSelector(BoxLayout):
         card.bind(size=lambda obj, val: self._update_card_rect(obj, val, obj.original_border_color, available),
                  pos=lambda obj, val: self._update_card_rect(obj, val, obj.original_border_color, available))
 
-        # Add destination labels
-        route_label = Label(
-            text=f"{from_city}-{to_city}",
+        # Always show artist, tier, and price on their own lines
+        event_label = Label(
+            text=f"{event}",
             font_size=sp(16),
             bold=True,
             color=black,
             size_hint=(1, None),
-            height=dp(25),
-            halign='left'
+            height=dp(28),
+            halign='left',
+            valign='middle'
         )
-        route_label.bind(size=self._update_label)
-
-        # Add class label
-        class_label = Label(
-            text=f"{travel_class}",
-            font_size=sp(14),
-            color=border_color,
+        event_label.bind(size=self._update_label)
+        tier_label = Label(
+            text=f"{tier}",
+            font_size=sp(13),
+            color=black,
             size_hint=(1, None),
             height=dp(20),
-            halign='left'
+            halign='left',
+            valign='middle'
         )
-        class_label.bind(size=self._update_label)
-
-        # Add one-way label
-        way_label = Label(
-            text="One-way",
-            font_size=sp(12),
-            color=(0.5, 0.5, 0.5, 1),
-            size_hint=(1, None),
-            height=dp(20),
-            halign='left'
-        )
-        way_label.bind(size=self._update_label)
-
-        # Add price
+        tier_label.bind(size=self._update_label)
         price_label = Label(
             text=f"₱{price:,}",
             font_size=sp(18),
             bold=True,
-            color=normal_color if available else (0.6, 0.6, 0.6, 1),
+            color=black if available else (0.6, 0.6, 0.6, 1),
             size_hint=(1, None),
             height=dp(25),
-            halign='left'
+            halign='left',
+            valign='middle'
         )
         price_label.bind(size=self._update_label)
+        card.add_widget(event_label)
+        card.add_widget(tier_label)
+        card.add_widget(price_label)
 
         # For unavailable card, show "OUT OF STOCK"
         if not available:
@@ -625,19 +724,13 @@ class RouteSelector(BoxLayout):
                 color=(0.8, 0, 0, 1),
                 size_hint=(1, None),
                 height=dp(20),
-                halign='center'
+                halign='center',
+                valign='middle'
             )
-            card.add_widget(route_label)
-            card.add_widget(class_label)
-            card.add_widget(way_label)
             card.add_widget(out_label)
         else:
-            card.add_widget(route_label)
-            card.add_widget(class_label)
-            card.add_widget(way_label)
-            card.add_widget(price_label)
             # Make card selectable
-            card.bind(on_touch_down=lambda obj, touch: self.select_card(obj, touch, {"route": f"{from_city}-{to_city}", "class": travel_class, "price": price}))
+            card.bind(on_touch_down=lambda obj, touch: self.select_card(obj, touch, {"event": event, "tier": tier, "price": price}))
 
         return card
 
@@ -647,27 +740,33 @@ class RouteSelector(BoxLayout):
     def _update_card_rect(self, instance, value, border_color, available):
         instance.canvas.before.clear()
         with instance.canvas.before:
+            # Always use white background
             Color(*white)
             RoundedRectangle(size=instance.size, pos=instance.pos, radius=[dp(8)])
 
-            # Add border
-            Color(*border_color, group='color_border') # Added group for animation
+            # Add border with tier color
+            Color(*border_color, group='color_border')
             instance.border_instruction = RoundedRectangle(
                 size=instance.size, pos=instance.pos, radius=[dp(8)],
                 line_width=dp(1.5) if available else dp(0),
                 width=dp(1.5) if available else dp(0)
             )
 
-    # Modified select_card to open the quantity popup
     def select_card(self, instance, touch, item_data):
         if instance.collide_point(*touch.pos):
+            # Set this card as selected and refresh the route cards
+            self.selected_card_key = (item_data['event'], item_data['tier'])
+            self.filter_routes()  # This will redraw the cards with the new selection
             # Trigger the pulse animation
             self.animate_card_pulse(instance, instance.original_border_color)
-            # Open the quantity popup
-            popup = QuantityPopup(transaction_panel=self.transaction_panel, item_data=item_data)
-            popup.open()
+            # Delay opening the quantity popup so the UI can update
+            Clock.schedule_once(lambda dt: self._open_quantity_popup(item_data), 0.1)
             return True
         return False # Return False if touch is not within the card
+
+    def _open_quantity_popup(self, item_data):
+        popup = QuantityPopup(transaction_panel=self.transaction_panel, item_data=item_data)
+        popup.open()
 
     # Method to animate the card border color
     def animate_card_pulse(self, card_instance, original_color):
@@ -1038,7 +1137,7 @@ class TransactionPanel(BoxLayout):
         # Check if the item is already in the list
         found = False
         for item in self.transaction_items:
-            if item['route'] == item_data['route'] and item['class'] == item_data['class']:
+            if item['event'] == item_data['event'] and item['tier'] == item_data['tier']:
                 item['quantity'] += quantity # Add the specified quantity
                 found = True
                 break
@@ -1066,7 +1165,7 @@ class TransactionPanel(BoxLayout):
 
             item_header = BoxLayout(size_hint=(1, None), height=dp(25))
             item_name = Label(
-                text=item['route'],
+                text=item['event'],
                 font_size=sp(14),
                 bold=True,
                 size_hint=(0.7, 1), # Adjusted size_hint to make space for the remove button
@@ -1108,7 +1207,7 @@ class TransactionPanel(BoxLayout):
 
 
             item_details = Label(
-                text=f"{item['class']}, One-way",
+                text=f"{item['tier']}, One-way",
                 font_size=sp(12),
                 size_hint=(1, None),
                 height=dp(15),
@@ -1306,6 +1405,11 @@ class MainScreen(Screen):
             self.root_layout.add_widget(NavBar(), index=len(self.root_layout.children))
         else:
             self.root_layout.add_widget(UserNavBar(), index=len(self.root_layout.children))
+
+        # Refresh filter tabs to reflect latest inventory
+        self.route_selector.build_filter_tabs()
+        # Refresh event cards to reflect latest inventory and filters
+        self.route_selector.filter_routes()
 
     def _update_bg(self, instance, value):
         print('MainScreen _update_bg')
