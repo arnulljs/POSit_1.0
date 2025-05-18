@@ -43,6 +43,23 @@ discounts = [
     {'title': 'No Discount', 'factor': 1.0} # Option to remove discount (paying 100%)
 ]
 
+# Helper function for error popups
+def display_error_popup(title, message):
+    error_label = Label(text=message,
+                        color=(1, 0, 0, 1),  # Bright red text
+                        font_size=sp(16),
+                        halign='center',
+                        valign='middle')
+    # Ensure text wraps within the label
+    error_label.bind(size=lambda *x: setattr(error_label, 'text_size', (error_label.width - dp(20), None)))
+
+    error_popup = Popup(title=title,
+                        content=error_label,
+                        size_hint=(0.6, 0.3), 
+                        title_color=(1,0,0,1), 
+                        title_align='center')
+    error_popup.open()
+
 class QuantityPopup(Popup):
     # ObjectProperty to hold the transaction panel instance
     transaction_panel = ObjectProperty(None)
@@ -111,11 +128,9 @@ class QuantityPopup(Popup):
                 self.transaction_panel.add_item_to_transaction(self.item_data, quantity)
                 self.dismiss() # Close the popup
             else:
-                # Optionally show an error if quantity is not positive
-                print("Quantity must be a positive number") # Replace with a proper error message
+                display_error_popup("Input Error", "Quantity must be a positive integer.")
         except ValueError:
-            # Optionally show an error if input is not a valid number
-            print("Invalid quantity. Please enter a number.") # Replace with a proper error message
+            display_error_popup("Input Error", "Invalid quantity. Please enter a whole number.")
 
 class PaymentMethodPopup(Popup):
     # ObjectProperty to hold the transaction panel instance
@@ -694,6 +709,29 @@ class TransactionPanel(BoxLayout):
         self.padding = dp(15)
         # self.size_hint_x = 0.25 # Removed size_hint_x here, set in MainScreen
 
+        # --- Initialize transaction counter from daily XML file ---
+        today_str = date.today().strftime("%Y-%m-%d")
+        daily_filename = f"transactions_{today_str}.xml"
+        daily_transaction_count = 0
+        daily_root_tag = "DailyTransactions"
+
+        if os.path.exists(daily_filename):
+            try:
+                tree = ET.parse(daily_filename)
+                daily_root = tree.getroot()
+                if daily_root.tag == daily_root_tag:
+                    daily_transaction_count = len(daily_root.findall("Transaction"))
+                    print(f"[INIT] Found {daily_transaction_count} transactions in {daily_filename}.")
+                else:
+                    print(f"[INIT] Warning: Existing file {daily_filename} has unexpected root tag '{daily_root.tag}'. Counter not adjusted from this file.")
+            except ET.ParseError:
+                print(f"[INIT] Warning: Could not parse existing file {daily_filename}. Counter not adjusted from this file.")
+            except Exception as e:
+                print(f"[INIT] Error reading {daily_filename} for transaction count: {e}")
+        
+        TransactionPanel._transaction_counter = daily_transaction_count # Set the class counter
+        # --- End of transaction counter initialization ---
+
         # Add a white background
         with self.canvas.before:
             Color(*white)
@@ -1201,7 +1239,12 @@ class TransactionPanel(BoxLayout):
     def show_checkout_popup(self, instance):
         # Check if there are items in the transaction before showing the popup
         if not self.transaction_items:
-            print("No items in transaction to checkout.") # Or show a message to the user
+            display_error_popup("Checkout Error", "There are no items in the current transaction.")
+            return
+
+        # Check if a payment method has been selected
+        if self.selected_payment_method == "Payment Method": # Default unselected text
+            display_error_popup("Checkout Error", "Please select a payment method before proceeding to checkout.")
             return
 
         # Check if cash tendered is sufficient for cash payments
@@ -1209,12 +1252,11 @@ class TransactionPanel(BoxLayout):
             try:
                 cash_tendered_float = float(self.cash_tendered)
                 if cash_tendered_float < self.total:
-                    print("Insufficient cash tendered.") # Or show an error message
+                    display_error_popup("Payment Error", "Insufficient cash tendered for the total amount.")
                     return
             except ValueError:
-                print("Invalid cash amount entered.") # Or show an error message
+                display_error_popup("Payment Error", "Invalid cash amount entered. Please use the numpad.")
                 return
-
 
         popup = CheckoutPopup(transaction_panel=self)
         popup.open()

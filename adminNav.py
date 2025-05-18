@@ -44,8 +44,8 @@ class NavBar(BoxLayout):
             ("Dashboard", self.goto_dashboard),
             ("Inventory Management", self.goto_inventory),
             ("Transaction View", self.goto_transaction),
-            ("User Management", self.goto_user_management),
-            ("Reports", lambda *_: self.show_popup("Reports")),
+            ("User Management", self.goto_user_management), # Keep this line
+            ("Reports", self.goto_reports), # Updated this line
             ("Settings", lambda *_: self.show_popup("Settings")),
         ]
         for name, callback in nav_options:
@@ -108,3 +108,11 @@ class NavBar(BoxLayout):
             sm.add_widget(UserManagementScreen(name='user_management'))
         if sm:
             sm.current = 'user_management'
+
+    def goto_reports(self, *_):
+        sm = self.get_screen_manager()
+        if sm and not sm.has_screen('reports_screen'):
+            from reportsGUI import ReportScreen # Local import
+            sm.add_widget(ReportScreen(name='reports_screen'))
+        if sm:
+            sm.current = 'reports_screen'

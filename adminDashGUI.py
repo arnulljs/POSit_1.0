@@ -11,6 +11,10 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.popup import Popup
 
+from datetime import datetime # Added
+import xml.etree.ElementTree as ET # Added
+import os # Added
+
 import auth
 from models import User, Admin
 from adminInventory import AdminInventoryScreen
@@ -115,6 +119,42 @@ class HomeScreen(Screen):
         self.manager.current = "login"
 
 
+# Helper function to get transaction summary for the current day
+def get_daily_transaction_summary():
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"transactions_{today_str}.xml"
+    total_sales = 0.0
+    transaction_count = 0
+    error_message = None
+
+    if not os.path.exists(filename):
+        error_message = f"File not found: {filename}"
+        print(f"[AdminDashboard] {error_message}")
+        return {'sales': total_sales, 'count': transaction_count, 'error': error_message}
+
+    try:
+        tree = ET.parse(filename)
+        daily_root = tree.getroot()
+
+        if daily_root.tag != "DailyTransactions":
+            error_message = f"Invalid XML format in {filename}"
+            print(f"[AdminDashboard] {error_message}")
+            return {'sales': total_sales, 'count': transaction_count, 'error': error_message}
+
+        for trans_elem in daily_root.findall("Transaction"):
+            try:
+                total_text = trans_elem.find("Summary/Total")
+                if total_text is not None and total_text.text:
+                    total_sales += float(total_text.text)
+                transaction_count += 1
+            except (ValueError, AttributeError) as e_item:
+                print(f"[AdminDashboard] Warning: Skipping a transaction in {filename} due to item parsing error: {e_item}")
+    except ET.ParseError as e_parse:
+        error_message = f"Error parsing XML file {filename}: {e_parse}"
+        print(f"[AdminDashboard] {error_message}")
+    return {'sales': total_sales, 'count': transaction_count, 'error': error_message}
+
+
 class MetricCard(BoxLayout):
     """
     Card widget for displaying a metric with title and value
@@ -137,7 +177,7 @@ class MetricCard(BoxLayout):
         self.bind(size=self._update_rect, pos=self._update_rect)
         
         # Value label with large font
-        value_label = Label(
+        self.value_label = Label( # Made it an instance attribute
             text=str(value),
             font_size=dp(28),
             color=(0.22, 0.27, 0.74, 1),  # Blue color
@@ -146,7 +186,7 @@ class MetricCard(BoxLayout):
         )
         
         # Title label with smaller font
-        title_label = Label(
+        self.title_label = Label( # Made it an instance attribute
             text=title,
             font_size=dp(14),
             color=(0, 0, 0, 0.7),  # Dark gray
@@ -154,8 +194,8 @@ class MetricCard(BoxLayout):
             height=dp(30)
         )
         
-        self.add_widget(value_label)
-        self.add_widget(title_label)
+        self.add_widget(self.value_label)
+        self.add_widget(self.title_label)
     
     def _update_rect(self, instance, value):
         self.rect.size = instance.size
@@ -288,16 +328,24 @@ class AdminDashboard(Screen):
             height=dp(120)
         )
         
-        # Sample metrics
-        sales_metric = MetricCard("Today's Sales", "₱24,580")
-        transactions_metric = MetricCard("Transactions Today", "182")
-        low_stock_metric = MetricCard("Low Stock Items", "8")
-        active_users_metric = MetricCard("Active Users", "12")
+        # Fetch initial dynamic data
+        summary_data = get_daily_transaction_summary()
+        initial_sales_value = f"₱{summary_data.get('sales', 0.0):,.2f}"
+        initial_transactions_value = str(summary_data.get('count', 0))
+        if summary_data.get('error'): # If there was an error, display 'Error'
+            initial_sales_value = "Error"
+            initial_transactions_value = "Error"
+
+        # Create and store metric cards as instance variables
+        self.sales_metric = MetricCard("Today's Sales", initial_sales_value)
+        self.transactions_metric = MetricCard("Transactions Today", initial_transactions_value)
+        self.low_stock_metric = MetricCard("Low Stock Items", "8") # Static for now
+        self.active_users_metric = MetricCard("Active Users", "12") # Static for now
         
-        metrics_grid.add_widget(sales_metric)
-        metrics_grid.add_widget(transactions_metric)
-        metrics_grid.add_widget(low_stock_metric)
-        metrics_grid.add_widget(active_users_metric)
+        metrics_grid.add_widget(self.sales_metric)
+        metrics_grid.add_widget(self.transactions_metric)
+        metrics_grid.add_widget(self.low_stock_metric)
+        metrics_grid.add_widget(self.active_users_metric)
         
         # System Alerts section
         alerts_title = Label(
@@ -385,6 +433,25 @@ class AdminDashboard(Screen):
         self.bind(size=self._update_rect, pos=self._update_rect)
         Clock.schedule_once(self._update_rect, 0)
     
+    def on_enter(self):
+        """Called when the screen is entered."""
+        # Fetch fresh data for dynamic metric cards
+        summary_data = get_daily_transaction_summary()
+        todays_sales_value = f"₱{summary_data.get('sales', 0.0):,.2f}"
+        transactions_today_value = str(summary_data.get('count', 0))
+
+        # Update the text of the value labels in the metric cards
+        if hasattr(self, 'sales_metric') and self.sales_metric:
+            self.sales_metric.value_label.text = todays_sales_value if not summary_data.get('error') else "Error"
+        
+        if hasattr(self, 'transactions_metric') and self.transactions_metric:
+            self.transactions_metric.value_label.text = transactions_today_value if not summary_data.get('error') else "Error"
+
+        if summary_data.get('error'):
+            print(f"[AdminDashboard] on_enter: Error updating summary: {summary_data['error']}")
+
+        # Note: Static metrics (low_stock, active_users) are not updated here.
+
     def _update_rect(self, *args):
         self.rect.size = self.size
         self.rect.pos = self.pos
