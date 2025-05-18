@@ -15,6 +15,10 @@ from kivy.properties import NumericProperty, ListProperty, StringProperty, Objec
 from kivy.animation import Animation
 from kivy.uix.popup import Popup # Import Popup
 from kivy.uix.textinput import TextInput # Import TextInput
+import xml.etree.ElementTree as ET # Import ElementTree for XML
+import os # For path operations
+import traceback # For detailed error logging
+from datetime import date # Import date from datetime module
 # from kivy.uix.spinner import Spinner # No longer needed
 from adminNav import NavBar
 from userNav import UserNavBar
@@ -26,6 +30,7 @@ pressed_color = (0.18, 0.22, 0.64, 1)  # Slightly darker shade for pressed state
 gray_bg = (0.95, 0.95, 0.97, 1)  # Light gray background
 white = (1, 1, 1, 1)
 black = (0, 0, 0, 1)
+light_button_color = (0.85, 0.85, 0.85, 1) # A lighter color for buttons
 
 # Define tax rate
 TAX_RATE = 0.12
@@ -56,7 +61,7 @@ class QuantityPopup(Popup):
 
         # Label to show item name
         item_label = Label(text=f"Item: {item_data['route']} ({item_data['class']})",
-                           size_hint_y=None, height=dp(30), color=black)
+                           size_hint_y=None, height=dp(30), color=white)  # Changed text color to white
         content.add_widget(item_label)
 
         # TextInput for quantity
@@ -67,7 +72,9 @@ class QuantityPopup(Popup):
             size_hint_y=None,
             height=dp(40),
             font_size=sp(16),
-            padding=[dp(10), dp(10), dp(10), dp(10)] # Adjust padding
+            padding=[dp(10), dp(10), dp(10), dp(10)], # Adjust padding
+            foreground_color=black,
+            hint_text_color=black
         )
         content.add_widget(self.quantity_input)
 
@@ -77,16 +84,16 @@ class QuantityPopup(Popup):
         confirm_button = Button(
             text='Add Item',
             background_normal="",
-            background_color=(0.2, 0.7, 0.4, 1),
-            color=white
+            background_color=(0.2, 0.7, 0.4, 1), # Kept original color for action button
+            color=white # Kept original color for action button text
         )
         confirm_button.bind(on_press=self.add_item_with_quantity)
 
         cancel_button = Button(
             text='Cancel',
             background_normal="",
-            background_color=(0.9, 0.2, 0.2, 1),
-            color=white
+            background_color=(0.9, 0.2, 0.2, 1), # Kept original color for action button
+            color=white # Kept original color for action button text
         )
         cancel_button.bind(on_press=self.dismiss)
 
@@ -130,8 +137,8 @@ class PaymentMethodPopup(Popup):
                 size_hint_y=None,
                 height=dp(40),
                 background_normal="",
-                background_color=normal_color,
-                color=white
+                background_color=normal_color, # Changed to lighter color
+                color=white # Changed text color to white
             )
             btn.bind(on_press=self.select_payment_method)
             content.add_widget(btn)
@@ -165,8 +172,8 @@ class DiscountPopup(Popup):
                 size_hint_y=None,
                 height=dp(40),
                 background_normal="",
-                background_color=normal_color,
-                color=white
+                background_color=light_button_color, # Changed to lighter color
+                color=white # Changed text color to white
             )
             # Pass the discount object to the apply_discount method
             btn.bind(on_press=lambda instance, d=discount: self.apply_discount(d))
@@ -198,43 +205,53 @@ class CheckoutPopup(Popup):
         details_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(5))
         details_layout.bind(minimum_height=details_layout.setter('height'))
 
-        # Add transaction details
-        # Safely access Transaction ID Label
-        transaction_id_text = "N/A"
-        # Check if children exist before accessing nested children
-        if self.transaction_panel.children and len(self.transaction_panel.children) > 1 and \
-           self.transaction_panel.children[-1].children and len(self.transaction_panel.children[-1].children) > 1 and \
-           self.transaction_panel.children[-1].children[-1].children:
-             transaction_id_text = self.transaction_panel.children[-1].children[-1].children[0].text
+        # Get the current date
+        today = date.today()
+        date_text = today.strftime("%B %d, %Y") # Format the date
 
-
-        details_layout.add_widget(Label(text=f"Transaction ID: {transaction_id_text}", size_hint_y=None, height=dp(30), halign='left', color=black, bold=True))
-        details_layout.add_widget(Label(text="Items:", size_hint_y=None, height=dp(25), halign='left', color=black, bold=True))
+        # Add transaction details including date and ID
+        details_layout.add_widget(Label(text=f"Transaction ID: {self.transaction_panel.transaction_id_text}", size_hint_y=None, height=dp(30), halign='left', color=white, bold=True)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"Date: {date_text}", size_hint_y=None, height=dp(30), halign='left', color=white, bold=True)) # Added Date
+        details_layout.add_widget(Label(text="Items:", size_hint_y=None, height=dp(25), halign='left', color=white, bold=True)) # Changed text color to white
 
         # Add items list
         for item in self.transaction_panel.transaction_items:
             item_details = f"- {item['route']} ({item['class']}) x{item['quantity']} @ ₱{item['price']:,.2f} each"
-            details_layout.add_widget(Label(text=item_details, size_hint_y=None, height=dp(20), halign='left', color=black))
+            details_layout.add_widget(Label(text=item_details, size_hint_y=None, height=dp(20), halign='left', color=white)) # Changed text color to white
 
         details_layout.add_widget(Label(text="", size_hint_y=None, height=dp(10))) # Spacer
 
         # Add summary details
-        details_layout.add_widget(Label(text=f"Subtotal: ₱{self.transaction_panel.subtotal:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=black))
-        details_layout.add_widget(Label(text=f"Tax ({TAX_RATE*100:.0f}%): ₱{self.transaction_panel.tax:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=black))
-        details_layout.add_widget(Label(text=f"Discount: -₱{self.transaction_panel.discount_amount:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=black))
-        details_layout.add_widget(Label(text=f"TOTAL: ₱{self.transaction_panel.total:,.2f}", size_hint_y=None, height=dp(30), halign='left', color=black, bold=True))
-        details_layout.add_widget(Label(text=f"Payment Method: {self.transaction_panel.selected_payment_method}", size_hint_y=None, height=dp(25), halign='left', color=black))
-        details_layout.add_widget(Label(text=f"Cash Tendered: ₱{float(self.transaction_panel.cash_tendered):,.2f}", size_hint_y=None, height=dp(25), halign='left', color=black))
+        details_layout.add_widget(Label(text=f"Subtotal: ₱{self.transaction_panel.subtotal:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"Tax ({TAX_RATE*100:.0f}%): ₱{self.transaction_panel.tax:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+
+        # Add Discount Title and Amount
+        details_layout.add_widget(Label(text=f"Discount Applied: {self.transaction_panel.selected_discount['title']}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Added Discount Title
+        details_layout.add_widget(Label(text=f"Discount Amount: -₱{self.transaction_panel.discount_amount:,.2f}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+
+        details_layout.add_widget(Label(text=f"TOTAL: ₱{self.transaction_panel.total:,.2f}", size_hint_y=None, height=dp(30), halign='left', color=white, bold=True)) # Changed text color to white
+        details_layout.add_widget(Label(text=f"Payment Method: {self.transaction_panel.selected_payment_method}", size_hint_y=None, height=dp(25), halign='left', color=white)) # Changed text color to white
+        
+        # Robust cash tendered display
+        try:
+            cash_tendered_display_float = float(self.transaction_panel.cash_tendered)
+            cash_tendered_display_text = f"₱{cash_tendered_display_float:,.2f}"
+        except ValueError:
+            cash_tendered_display_text = "Invalid Cash Amount"
+        details_layout.add_widget(Label(text=f"Cash Tendered: {cash_tendered_display_text}", size_hint_y=None, height=dp(25), halign='left', color=white))
 
         # Calculate and display change
         try:
             cash_tendered_float = float(self.transaction_panel.cash_tendered)
             change = cash_tendered_float - self.transaction_panel.total
             change_text = f"Change: ₱{change:,.2f}" if change >= 0 else "Change: Insufficient Cash"
-            details_layout.add_widget(Label(text=change_text, size_hint_y=None, height=dp(30), halign='left', color=black, bold=True))
         except ValueError:
-            details_layout.add_widget(Label(text="Change: Invalid Cash Amount", size_hint_y=None, height=dp(30), halign='left', color=black, bold=True))
+            change_text = "Change: Invalid Cash Amount"
+        details_layout.add_widget(Label(text=change_text, size_hint_y=None, height=dp(30), halign='left', color=white, bold=True))
 
+        # Add a placeholder for a confirmation message
+        details_layout.add_widget(Label(text="", size_hint_y=None, height=dp(20))) # Spacer
+        details_layout.add_widget(Label(text="Thank you for your purchase!", size_hint_y=None, height=dp(30), halign='center', color=white, bold=True)) # Added confirmation message
 
         details_scrollview.add_widget(details_layout)
         content.add_widget(details_scrollview)
@@ -245,16 +262,16 @@ class CheckoutPopup(Popup):
         confirm_button = Button(
             text='Confirm Purchase',
             background_normal="",
-            background_color=(0.2, 0.7, 0.4, 1),
-            color=white
+            background_color=(0.2, 0.7, 0.4, 1), # Kept original color for action button
+            color=white # Kept original color for action button text
         )
         confirm_button.bind(on_press=self.confirm_purchase)
 
         cancel_button = Button(
             text='Cancel',
             background_normal="",
-            background_color=(0.9, 0.2, 0.2, 1),
-            color=white
+            background_color=(0.9, 0.2, 0.2, 1), # Kept original color for action button
+            color=white # Kept original color for action button text
         )
         cancel_button.bind(on_press=self.dismiss)
 
@@ -265,13 +282,135 @@ class CheckoutPopup(Popup):
         self.content = content
 
     def confirm_purchase(self, instance):
-        # Placeholder for actual purchase confirmation logic
-        print("Purchase Confirmed!")
-        # You would typically process the transaction here (e.g., save to database, print receipt)
-        # For now, we'll just dismiss the popup and clear the transaction
+        print("Confirm Purchase button pressed.")
+        current_transaction_id = self.transaction_panel.transaction_id_text
+        print(f"Attempting to confirm and save purchase for Transaction ID: {current_transaction_id}")
+
+        # Save transaction to XML and get status
+        print(f"Saving transaction data for {current_transaction_id} to XML...")
+        save_success, save_message_or_filename = self.save_transaction_to_xml()
+
+        if save_success:
+            print(f"Successfully saved XML for {current_transaction_id} to {save_message_or_filename}")
+        else:
+            print(f"ERROR: Failed to save XML for {current_transaction_id}. Reason: {save_message_or_filename}")
+            # Show an error popup to the user
+            error_label = Label(text=f"XML Save Failed:\n{save_message_or_filename}",
+                                color=(1, 0, 0, 1),  # Bright red text
+                                font_size=sp(16),
+                                halign='center',
+                                valign='middle')
+            # Ensure text wraps within the label
+            error_label.bind(size=lambda *x: setattr(error_label, 'text_size', (error_label.width - dp(20), None)))
+
+            error_popup = Popup(title='XML Save Error',
+                                content=error_label,
+                                size_hint=(0.7, 0.5), # Make it a good portion of the screen
+                                title_color=(1,0,0,1), # Red title for popup
+                                title_align='center')
+            error_popup.open()
+
+        print(f"Purchase processing complete for Transaction ID: {current_transaction_id}.")
+
+        # Increment the transaction ID for the *next* transaction
+        self.transaction_panel.generate_transaction_id()
+        print(f"New transaction ID generated: {self.transaction_panel.transaction_id_text}")
+
+        # Clear the current transaction from the panel
         self.transaction_panel.cancel_transaction(None) # Use the existing cancel logic to clear
         self.dismiss() # Close the popup
 
+    def save_transaction_to_xml(self):
+        """Saves the current transaction details to an XML file."""
+        try:
+            tp = self.transaction_panel
+            print(f"[XML SAVE] Transaction Panel object: {tp}")
+            if not tp.transaction_id_text:
+                print("[XML SAVE] Error: Transaction ID is empty.")
+                return False, "Transaction ID is empty. Cannot save XML."
+            print(f"[XML SAVE] Transaction ID: {tp.transaction_id_text}")
+
+            # Create an Element for the current transaction
+            transaction_element = ET.Element("Transaction")
+
+            # Populate the current transaction_element
+            ET.SubElement(transaction_element, "TransactionID").text = tp.transaction_id_text
+            ET.SubElement(transaction_element, "Timestamp").text = date.today().strftime("%Y-%m-%d %H:%M:%S") # More precise
+
+            items_xml = ET.SubElement(transaction_element, "Items")
+            for item in tp.transaction_items:
+                item_xml = ET.SubElement(items_xml, "Item")
+                ET.SubElement(item_xml, "Route").text = item['route']
+                ET.SubElement(item_xml, "Class").text = item['class']
+                ET.SubElement(item_xml, "Quantity").text = str(item['quantity'])
+                ET.SubElement(item_xml, "PricePerItem").text = f"{item['price']:.2f}"
+                ET.SubElement(item_xml, "ItemTotal").text = f"{item['price'] * item['quantity']:.2f}"
+
+            summary_xml = ET.SubElement(transaction_element, "Summary")
+            ET.SubElement(summary_xml, "Subtotal").text = f"{tp.subtotal:.2f}"
+            ET.SubElement(summary_xml, "TaxRate").text = f"{TAX_RATE*100:.0f}%"
+            ET.SubElement(summary_xml, "TaxAmount").text = f"{tp.tax:.2f}"
+            ET.SubElement(summary_xml, "DiscountTitle").text = tp.selected_discount['title']
+            ET.SubElement(summary_xml, "DiscountFactor").text = str(tp.selected_discount['factor'])
+            ET.SubElement(summary_xml, "DiscountAmount").text = f"{tp.discount_amount:.2f}"
+            ET.SubElement(summary_xml, "Total").text = f"{tp.total:.2f}"
+
+            payment_xml = ET.SubElement(transaction_element, "Payment")
+            ET.SubElement(payment_xml, "PaymentMethod").text = tp.selected_payment_method
+
+            try:
+                cash_tendered_float = float(tp.cash_tendered)
+                ET.SubElement(payment_xml, "CashTendered").text = f"{cash_tendered_float:.2f}"
+                change = cash_tendered_float - tp.total
+                ET.SubElement(payment_xml, "Change").text = f"{change:.2f}"
+            except ValueError:
+                ET.SubElement(payment_xml, "CashTendered").text = tp.cash_tendered # Save original if not float
+                ET.SubElement(payment_xml, "Change").text = "Invalid Cash Amount for Change Calc"
+
+            # --- Logic for daily XML file ---
+            today_str = date.today().strftime("%Y-%m-%d")
+            daily_filename = f"transactions_{today_str}.xml"
+            print(f"[XML SAVE] Daily filename: {daily_filename}")
+
+            daily_root_tag = "DailyTransactions"
+            tree = None
+            daily_root = None
+
+            if os.path.exists(daily_filename):
+                try:
+                    tree = ET.parse(daily_filename)
+                    daily_root = tree.getroot()
+                    if daily_root.tag != daily_root_tag: # Check if root tag is what we expect
+                        print(f"[XML SAVE] Warning: Existing file {daily_filename} has unexpected root tag '{daily_root.tag}'. Creating new structure.")
+                        daily_root = None # Force creation of new root
+                except ET.ParseError:
+                    print(f"[XML SAVE] Warning: Could not parse existing file {daily_filename}. A new file will be created.")
+                    # Optionally, you could back up the corrupted file here
+                    daily_root = None # Force creation of new root
+
+            if daily_root is None: # If file didn't exist, was unparsable, or had wrong root tag
+                daily_root = ET.Element(daily_root_tag)
+                tree = ET.ElementTree(daily_root)
+
+            daily_root.append(transaction_element) # Add current transaction to the daily root
+            ET.indent(tree, space="\t", level=0) # For pretty printing the whole tree
+
+            # Get and print the absolute path for clarity
+            try:
+                full_path = os.path.abspath(daily_filename)
+                print(f"[XML SAVE] Attempting to write XML to full path: {full_path}")
+            except Exception as path_e:
+                print(f"[XML SAVE] Could not determine absolute path: {path_e}")
+                full_path = daily_filename # Fallback to relative filename for messages
+
+            tree.write(daily_filename, encoding="utf-8", xml_declaration=True)
+            print(f"[XML SAVE] Successfully wrote XML to {full_path}")
+            return True, full_path
+
+        except Exception as e:
+            error_details = traceback.format_exc()
+            print(f"[XML SAVE] CRITICAL ERROR saving transaction to XML: {e}\n{error_details}")
+            return False, f"XML generation/write error: {str(e)}\nSee console for details."
 
 class RouteSelector(BoxLayout):
     # Modified __init__ to accept transaction_panel instance
@@ -541,7 +680,10 @@ class TransactionPanel(BoxLayout):
     cash_tendered = StringProperty("0.00") # Property to hold cash tendered amount
     selected_discount = ObjectProperty(discounts[-1]) # Property to hold the selected discount, default to 'No Discount'
     discount_amount = NumericProperty(0) # Property to hold the calculated discount amount
+    transaction_id_text = StringProperty("") # Property to hold the formatted transaction ID
 
+    # Class variable to keep track of the transaction counter
+    _transaction_counter = 0
 
     def __init__(self, **kwargs):
         print('TransactionPanel __init__')
@@ -571,19 +713,26 @@ class TransactionPanel(BoxLayout):
         )
         header.bind(size=self._update_label)
 
-        transaction_id = Label(
-            text="#12458",
+        # Label to display the dynamic transaction ID
+        self.transaction_id_label = Label(
+            text=self.transaction_id_text, # Bind to the property
             font_size=sp(14),
             size_hint=(0.3, 1), # Adjust size hint for ID
             halign='right',
             color=(0.5, 0.5, 0.5, 1)
         )
-        transaction_id.bind(size=self._update_label)
+        self.transaction_id_label.bind(size=self._update_label)
+        # Bind the label's text to the transaction_id_text property
+        self.bind(transaction_id_text=self.update_transaction_id_label)
+
 
         header_layout.add_widget(header)
-        header_layout.add_widget(transaction_id)
+        header_layout.add_widget(self.transaction_id_label) # Use the label instance
 
         self.add_widget(header_layout) # Add the new horizontal layout
+
+        # Generate the initial transaction ID
+        self.generate_transaction_id()
 
 
         # Container for dynamically added items
@@ -671,12 +820,12 @@ class TransactionPanel(BoxLayout):
         discount_layout.add_widget(self.discount_amount_label) # Add the discount amount label
         self.add_widget(discount_layout)
 
-        line = BoxLayout(size_hint=(1, None), height=dp(1))
-        with line.canvas:
+        self.line = BoxLayout(size_hint=(1, None), height=dp(1))
+        with self.line.canvas:
             Color(0.8, 0.8, 0.8, 1)
-            Rectangle(size=line.size, pos=line.pos)
-        line.bind(size=self._update_line, pos=self._update_line)
-        self.add_widget(line)
+            Rectangle(size=self.line.size, pos=self.line.pos)
+        self.line.bind(size=self._update_line, pos=self._update_line)
+        self.add_widget(self.line)
 
         total_layout = BoxLayout(size_hint=(1, None), height=dp(35)) # Adjusted height
         total_label = Label(
@@ -832,10 +981,19 @@ class TransactionPanel(BoxLayout):
         instance.canvas.clear()
         with instance.canvas:
             Color(0.8, 0.8, 0.8, 1)
-            Rectangle(size=instance.size, pos=instance.pos)
+            Rectangle(size=self.line.size, pos=self.line.pos)
 
     def _update_label(self, instance, value):
         instance.text_size = (instance.width, None)
+
+    # New method to generate and format the transaction ID
+    def generate_transaction_id(self):
+        TransactionPanel._transaction_counter += 1
+        self.transaction_id_text = f"{TransactionPanel._transaction_counter:05d}" # Format as 5 digits with leading zeros
+
+    # Method to update the transaction ID label text
+    def update_transaction_id_label(self, instance, value):
+        self.transaction_id_label.text = f"#{value}" # Add '#' prefix
 
     # Method to add an item to the transaction with a specified quantity
     def add_item_to_transaction(self, item_data, quantity):
@@ -1098,7 +1256,7 @@ class MainScreen(Screen):
         for child in self.root_layout.children[:]:
             if isinstance(child, (NavBar, UserNavBar)):
                 self.root_layout.remove_widget(child)
-        
+
         # Add the correct navigation bar at the top
         import auth
         user = auth.getCurrentUser()

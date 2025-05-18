@@ -44,7 +44,7 @@ class NavBar(BoxLayout):
             ("Dashboard", self.goto_dashboard),
             ("Inventory Management", self.goto_inventory),
             ("Transaction View", self.goto_transaction),
-            ("User Management", lambda *_: self.show_popup("User Management")),
+            ("User Management", self.goto_user_management),
             ("Reports", lambda *_: self.show_popup("Reports")),
             ("Settings", lambda *_: self.show_popup("Settings")),
         ]
@@ -100,3 +100,11 @@ class NavBar(BoxLayout):
         sm = self.get_screen_manager()
         if sm:
             sm.current = 'user_dashboard'
+
+    def goto_user_management(self, *_):
+        sm = self.get_screen_manager()
+        if sm and not sm.has_screen('user_management'):
+            from userManagement import UserManagementScreen # Local import
+            sm.add_widget(UserManagementScreen(name='user_management'))
+        if sm:
+            sm.current = 'user_management'
