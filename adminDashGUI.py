@@ -353,7 +353,7 @@ class AdminDashboard(Screen):
         self.sales_metric = MetricCard("Today's Sales", initial_sales_value)
         self.transactions_metric = MetricCard("Transactions Today", initial_transactions_value)
         self.low_stock_metric = MetricCard("Low Stock Items", str(low_stock_count))
-        self.active_users_metric = MetricCard("Active Users", "12") # Static for now
+        self.active_users_metric = MetricCard("Active Users", "1") # Static for now
         
         metrics_grid.add_widget(self.sales_metric)
         metrics_grid.add_widget(self.transactions_metric)
@@ -372,8 +372,8 @@ class AdminDashboard(Screen):
         alerts_title.bind(size=self._update_text_size)
         
         # Create scrollable alerts container
-        alerts_container = BoxLayout(orientation='vertical', spacing=dp(10), size_hint=(1, None))
-        alerts_container.bind(minimum_height=alerts_container.setter('height'))
+        self.alerts_container = BoxLayout(orientation='vertical', spacing=dp(10), size_hint=(1, None)) # Made instance variable
+        self.alerts_container.bind(minimum_height=self.alerts_container.setter('height'))
         
         # Sample alerts
         alerts = []
@@ -390,11 +390,11 @@ class AdminDashboard(Screen):
         
         for alert in alerts:
             alert_item = AlertItem(alert["message"], alert["level"])
-            alerts_container.add_widget(alert_item)
+            self.alerts_container.add_widget(alert_item)
         
         # Create scrollview for alerts
         alerts_scroll = ScrollView(size_hint=(1, None), height=dp(200))
-        alerts_scroll.add_widget(alerts_container)
+        alerts_scroll.add_widget(self.alerts_container)
         
         # Daily Sales Trend section
         trend_title = Label(
@@ -469,8 +469,28 @@ class AdminDashboard(Screen):
         if error_msg:
             print(f"[AdminDashboard] on_enter: Summary status: {error_msg}")
 
-        # Note: Static metrics (low_stock, active_users) are not updated here.
+        # Update low and critical stock counts and alerts
+        low_stock_count, critical_stock_count = count_low_and_critical_stock()
 
+        if hasattr(self, 'low_stock_metric') and self.low_stock_metric:
+            self.low_stock_metric.value_label.text = str(low_stock_count)
+
+        # Update alerts
+        if hasattr(self, 'alerts_container') and self.alerts_container:
+            self.alerts_container.clear_widgets()
+            updated_alerts = []
+            if critical_stock_count > 0:
+                updated_alerts.append({
+                    "message": f"Critical Stock: {critical_stock_count} item(s) at or below 5 remaining!",
+                    "level": "critical"
+                })
+            if low_stock_count > 0: # This will include critical stock items as well if low_stock_count is just items <=10
+                updated_alerts.append({
+                    "message": f"Low Stock: {low_stock_count} item(s) at or below 10 remaining.", # Consider if this message should exclude critical items
+                    "level": "warning"
+                })
+            for alert_data in updated_alerts:
+                self.alerts_container.add_widget(AlertItem(alert_data["message"], alert_data["level"]))
     def _update_rect(self, *args):
         self.rect.size = self.size
         self.rect.pos = self.pos

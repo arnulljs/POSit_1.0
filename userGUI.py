@@ -23,7 +23,7 @@ from datetime import date # Import date from datetime module
 # from kivy.uix.spinner import Spinner # No longer needed
 from adminNav import NavBar
 from userNav import UserNavBar
-from tickets import routes_data, get_routes
+from tickets import routes_data, get_routes, update_route # Added update_route
 
 # Global color definitions
 normal_color = (0.22, 0.27, 0.74, 1)  # #3944BC in RGBA
@@ -152,23 +152,32 @@ class QuantityPopup(Popup):
                 return
 
             quantity = int(quantity_text)
-            if quantity > 0:
+            available_stock = self.item_data.get('stock', 0) # Get current stock for this item
+
+            if quantity <= 0:
+                self.quantity_input.hint_text = "Quantity must be greater than 0."
+                self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
+                self.quantity_input.text = "" # Clear input
+            elif quantity > available_stock:
+                self.quantity_input.hint_text = f"Only {available_stock} available. Enter less."
+                self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
+                self.quantity_input.text = "" # Clear input
+            else:
                 # Reset hint text on successful validation
                 self.quantity_input.hint_text = self.original_quantity_hint
                 self.quantity_input.hint_text_color = self.default_hint_text_color
                 # Call the method in TransactionPanel to add the item with quantity
                 self.transaction_panel.add_item_to_transaction(self.item_data, quantity)
                 self.dismiss() # Close the popup
-            else:
-                self.quantity_input.hint_text = "Quantity must be greater than 0."
-                self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
-                self.quantity_input.text = "" # Clear input
         except ValueError:
             self.quantity_input.hint_text = "Invalid quantity. Enter a whole number."
             self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
             self.quantity_input.text = "" # Clear input
 
 class PaymentMethodPopup(Popup):
+    # ObjectProperty to hold the transaction panel instance
+    transaction_panel = ObjectProperty(None)
+
     # ObjectProperty to hold the transaction panel instance
     transaction_panel = ObjectProperty(None)
 
@@ -223,7 +232,7 @@ class DiscountPopup(Popup):
                 size_hint_y=None,
                 height=dp(40),
                 background_normal="",
-                background_color=light_button_color, # Changed to lighter color
+                background_color=normal_color,
                 color=white # Changed text color to white
             )
             # Pass the discount object to the apply_discount method
@@ -343,6 +352,41 @@ class CheckoutPopup(Popup):
 
         if save_success:
             print(f"Successfully saved XML for {current_transaction_id} to {save_message_or_filename}")
+
+            # ---- DECREMENT STOCK ----
+            try:
+                all_current_tickets = get_routes() # Get fresh list of all tickets
+                items_purchased_details = self.transaction_panel.transaction_items
+
+                for purchased_item_info in items_purchased_details:
+                    event_name = purchased_item_info['event']
+                    tier_name = purchased_item_info['tier']
+                    quantity_bought = purchased_item_info['quantity']
+
+                    # Find the ticket in all_current_tickets and its index
+                    ticket_index_to_update = -1
+                    ticket_data_to_update = None
+
+                    for i, ticket_in_stock in enumerate(all_current_tickets):
+                        # Assuming event and tier uniquely identify a ticket type
+                        if ticket_in_stock['event'] == event_name and \
+                           ticket_in_stock['tier'] == tier_name:
+                            ticket_index_to_update = i
+                            ticket_data_to_update = ticket_in_stock.copy() # Work on a copy
+                            break
+                    
+                    if ticket_data_to_update and ticket_index_to_update != -1:
+                        new_availability = ticket_data_to_update.get('availability', 0) - quantity_bought
+                        ticket_data_to_update['availability'] = max(0, new_availability) # Ensure not negative
+                        
+                        update_route(ticket_index_to_update, ticket_data_to_update)
+                        print(f"Stock updated for {event_name} ({tier_name}): new availability {ticket_data_to_update['availability']}")
+                    else:
+                        print(f"WARNING: Could not find ticket {event_name} ({tier_name}) in stock to update availability.")
+            except Exception as e:
+                print(f"ERROR updating stock availability: {e}")
+                traceback.print_exc() # For more details
+            # ---- END DECREMENT STOCK ----
         else:
             print(f"ERROR: Failed to save XML for {current_transaction_id}. Reason: {save_message_or_filename}")
             # Show an error popup to the user
@@ -369,6 +413,36 @@ class CheckoutPopup(Popup):
 
         # Clear the current transaction from the panel
         self.transaction_panel.cancel_transaction(None) # Use the existing cancel logic to clear
+
+        # Refresh the RouteSelector display in MainScreen
+        try:
+            # self.transaction_panel.parent is content_layout
+            # self.transaction_panel.parent.parent is MainScreen instance
+            # Corrected path: transaction_panel.parent (content_layout) -> .parent (root_layout) -> .parent (MainScreen)
+            main_screen_instance = self.transaction_panel.parent.parent.parent
+
+            if hasattr(main_screen_instance, 'route_selector') and \
+               hasattr(main_screen_instance.route_selector, 'filter_routes'):
+                print("Refreshing RouteSelector after purchase...")
+                main_screen_instance.route_selector.filter_routes()
+            else:
+                print(f"WARNING: Could not find route_selector on MainScreen instance ({main_screen_instance}) to refresh.")
+                # Fallback attempt if direct parent traversal fails or structure changes
+                app = App.get_running_app()
+                if app and app.root and hasattr(app.root, 'current_screen'):
+                    current_screen_widget = app.root.current_screen
+                    if isinstance(current_screen_widget, MainScreen): # Ensure it's the MainScreen
+                        if hasattr(current_screen_widget, 'route_selector') and \
+                           hasattr(current_screen_widget.route_selector, 'filter_routes'):
+                            print("Refreshing RouteSelector via App.get_running_app()...")
+                            current_screen_widget.route_selector.filter_routes()
+                        else:
+                            print("Found MainScreen via App, but its route_selector is missing or filter_routes method.")
+                    else:
+                        print(f"Current screen '{current_screen_widget.name if current_screen_widget else 'None'}' is not the expected MainScreen.")
+        except Exception as e:
+            print(f"Error refreshing RouteSelector: {e}")
+            traceback.print_exc()
         self.dismiss() # Close the popup
 
     def save_transaction_to_xml(self):
@@ -752,6 +826,31 @@ class RouteSelector(BoxLayout):
         card.add_widget(price_label)
 
         # For unavailable card, show "OUT OF STOCK"
+        # Add stock level indicators (Low Stock, Critically Low Stock) if applicable
+        stock_indicator_label = None
+        if 1 <= stock_quantity <= 5:
+            stock_indicator_label = Label(
+                text="CRITICALLY LOW STOCK",
+                font_size=sp(12),
+                bold=True,
+                color=(1, 0, 0, 1), # Red color for critically low
+                size_hint=(1, None),
+                height=dp(20),
+                halign='left',
+                valign='middle'
+            )
+        elif 6 <= stock_quantity <= 10:
+            stock_indicator_label = Label(
+                text="LOW STOCK",
+                font_size=sp(12),
+                bold=True,
+                color=(1, 0, 0, 1), # Red color for low
+                size_hint=(1, None),
+                height=dp(20),
+                halign='left',
+                valign='middle'
+            )
+
         if not is_available_for_purchase:
             card.opacity = 0.7
             out_label = Label(
@@ -765,9 +864,12 @@ class RouteSelector(BoxLayout):
                 valign='middle'
             )
             card.add_widget(out_label)
-        else:
+        else: # Item is available for purchase (stock > 0)
             # Make card selectable
             card.bind(on_touch_down=lambda obj, touch: self.select_card(obj, touch, {"event": event, "tier": tier, "price": price, "stock": stock_quantity}))
+            if stock_indicator_label: # If low or critically low stock, add the indicator
+                stock_indicator_label.bind(size=self._update_label)
+                card.add_widget(stock_indicator_label)
 
         return card
 
@@ -845,27 +947,46 @@ class TransactionPanel(BoxLayout):
         self.padding = dp(15)
         # self.size_hint_x = 0.25 # Removed size_hint_x here, set in MainScreen
 
-        # --- Initialize transaction counter from daily XML file ---
+        # --- Initialize transaction counter by finding the max ID from today's XML file ---
         today_str = date.today().strftime("%Y-%m-%d")
-        daily_filename = f"transactions_{today_str}.xml"
-        daily_transaction_count = 0
+        transactions_dir = "transactions"
         daily_root_tag = "DailyTransactions"
+        max_existing_id = 0
+
+        # Ensure the transactions directory exists
+        if not os.path.exists(transactions_dir):
+            try:
+                os.makedirs(transactions_dir)
+                print(f"[INIT] Created directory: {transactions_dir}")
+            except OSError as e:
+                print(f"[INIT] CRITICAL: Error creating directory {transactions_dir}: {e}. Transaction saving might fail.")
+                # Depending on desired behavior, you might want to raise an error or display a popup
+
+        daily_filename = os.path.join(transactions_dir, f"transactions_{today_str}.xml")
 
         if os.path.exists(daily_filename):
             try:
                 tree = ET.parse(daily_filename)
                 daily_root = tree.getroot()
                 if daily_root.tag == daily_root_tag:
-                    daily_transaction_count = len(daily_root.findall("Transaction"))
-                    print(f"[INIT] Found {daily_transaction_count} transactions in {daily_filename}.")
+                    for transaction_element in daily_root.findall("Transaction"):
+                        id_element = transaction_element.find("TransactionID")
+                        if id_element is not None and id_element.text:
+                            try:
+                                current_id = int(id_element.text)
+                                if current_id > max_existing_id:
+                                    max_existing_id = current_id
+                            except ValueError:
+                                print(f"[INIT] Warning: Non-integer TransactionID '{id_element.text}' found in {daily_filename}. Skipping.")
+                    print(f"[INIT] Max existing TransactionID for {today_str} is {max_existing_id} from {daily_filename}.")
                 else:
-                    print(f"[INIT] Warning: Existing file {daily_filename} has unexpected root tag '{daily_root.tag}'. Counter not adjusted from this file.")
+                    print(f"[INIT] Warning: File {daily_filename} has unexpected root tag '{daily_root.tag}'. Max ID not determined from this file.")
             except ET.ParseError:
-                print(f"[INIT] Warning: Could not parse existing file {daily_filename}. Counter not adjusted from this file.")
+                print(f"[INIT] Warning: Could not parse {daily_filename}. Max ID not determined from this file.")
             except Exception as e:
-                print(f"[INIT] Error reading {daily_filename} for transaction count: {e}")
+                print(f"[INIT] Error reading {daily_filename} to determine max transaction ID: {e}")
         
-        TransactionPanel._transaction_counter = daily_transaction_count # Set the class counter
+        TransactionPanel._transaction_counter = max_existing_id # Initialize with the highest ID found
         # --- End of transaction counter initialization ---
 
         # Add a white background
