@@ -15,6 +15,7 @@ import auth
 from kivy.uix.image import Image
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.widget import Widget
+import re # Import regular expressions
 
 # Placeholder for accent color, adapt as needed
 ACCENT_BLUE = (0.22, 0.27, 0.74, 1)
@@ -61,25 +62,33 @@ class UserEditPopup(Popup):
         self.size_hint = (0.5, 0.7)
         self.user = user
         self.on_save = on_save
+        
+        self.original_password_hint = 'New Password (leave blank to keep current)' if user else 'Password'
+        self.original_username_hint = 'Username'
+        # It seems Kivy's default hint_text_color is (0,0,0,0.5) but let's be explicit
+        # or use a theme-consistent color if you have one.
+        self.default_hint_text_color = (0,0,0,0.5) # Standard Kivy hint text color
 
         layout = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
 
         self.username_input = TextInput(
             text=user.username if user else '',
-            hint_text='Username',
+            hint_text=self.original_username_hint,
             multiline=False,
             size_hint_y=None,
-            height=dp(40)
+            height=dp(40),
+            hint_text_color=self.default_hint_text_color
         )
         
         # For password, only prompt for new password. If blank on edit, don't change.
-        password_hint = 'New Password (leave blank to keep current)' if user else 'Password'
+        # password_hint = 'New Password (leave blank to keep current)' if user else 'Password' # Now uses self.original_password_hint
         self.password_input = TextInput(
-            hint_text=password_hint,
+            hint_text=self.original_password_hint,
             multiline=False,
             password=True,
             size_hint_y=None,
-            height=dp(40)
+            height=dp(40),
+            hint_text_color=self.default_hint_text_color
         )
         
         self.role_spinner = Spinner(
@@ -107,27 +116,87 @@ class UserEditPopup(Popup):
 
         self.content = layout
 
+    def _is_password_valid(self, password):
+        """Checks if the password meets the defined criteria."""
+        
+        # Tier 1: Length
+        if len(password) < 8:
+            return False, "Password must be at least 8 characters long."
+
+        # Tier 2: Case
+        case_errors = []
+        if not re.search(r"[A-Z]", password):
+            case_errors.append("an uppercase letter")
+        if not re.search(r"[a-z]", password):
+            case_errors.append("a lowercase letter")
+        if case_errors:
+            return False, "Password must contain " + " and ".join(case_errors) + "."
+
+        # Tier 3: Numbers and Symbols
+        char_type_errors = []
+        if not re.search(r"[0-9]", password):
+            char_type_errors.append("a number")
+        if not re.search(r"[\W_]", password): # \W is non-alphanumeric (includes underscore)
+            char_type_errors.append("a symbol (e.g., !@#$%)")
+        if char_type_errors:
+            return False, "Password must contain " + " and ".join(char_type_errors) + "."
+        
+        # If all tiers pass
+        return True, ""
+
     def save_user(self, instance):
         # Basic validation
-        if not self.username_input.text.strip():
-            print("Error: Username cannot be empty.")
-            return
-        if not self.user and not self.password_input.text:  # Password required for new user
-            print("Error: Password cannot be empty for new user.")
+        username = self.username_input.text.strip()
+        password_text = self.password_input.text # Don't strip, spaces might be intentional
+        role = 'admin' if self.role_spinner.text == 'Admin' else 'user'
+
+        if not username:
+            self.username_input.hint_text = "Username cannot be empty."
+            self.username_input.hint_text_color = (1, 0, 0, 1) # Red
+            # Optionally clear the input or leave it as is
+            # self.username_input.text = "" 
             return
 
-        data = {
-            'username': self.username_input.text.strip(),
-            'role': 'admin' if self.role_spinner.text == 'Admin' else 'user',
-            'password': self.password_input.text if self.password_input.text or not self.user else None
-        }
+        # Password validation logic
+        if self.user: # Editing existing user
+            if password_text: # Password field is not empty, so user wants to change it
+                is_valid, error_message = self._is_password_valid(password_text)
+                if not is_valid:
+                    self.password_input.hint_text = error_message
+                    self.password_input.hint_text_color = (1, 0, 0, 1) # Red
+                    self.password_input.text = "" # Clear the invalid password
+                    return
+            # else: password field is empty, so don't change password, no validation needed
+        else: # Adding new user
+            if not password_text:
+                self.password_input.hint_text = "Password is required for new user."
+                self.password_input.hint_text_color = (1, 0, 0, 1) # Red
+                return
+            is_valid, error_message = self._is_password_valid(password_text)
+            if not is_valid:
+                self.password_input.hint_text = error_message
+                self.password_input.hint_text_color = (1, 0, 0, 1) # Red
+                self.password_input.text = "" # Clear the invalid password
+                return
+
+        # If validation passed or password not being changed, reset hint text style
+        self.password_input.hint_text = self.original_password_hint
+        self.password_input.hint_text_color = self.default_hint_text_color
         
-        # Filter out None password if not provided for update
-        if data['password'] is None:
-            del data['password']
+        # Reset username hint text style if it passed validation
+        self.username_input.hint_text = self.original_username_hint
+        self.password_input.hint_text_color = self.default_hint_text_color
+
+        # Prepare data for saving
+        final_data = {
+            'username': username,
+            'role': role,
+        }
+        if password_text: # Only include password if it was provided (and validated)
+            final_data['password'] = password_text
 
         if self.on_save:
-            self.on_save(data, is_new_user=(not self.user))
+            self.on_save(final_data, is_new_user=(not self.user))
         self.dismiss()
 
 class IconButton(ButtonBehavior, Image):

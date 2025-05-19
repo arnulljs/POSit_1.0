@@ -334,12 +334,18 @@ class AdminDashboard(Screen):
         
         # Fetch initial dynamic data
         summary_data = get_daily_transaction_summary()
-        initial_sales_value = f"₱{summary_data.get('sales', 0.0):,.2f}"
-        initial_transactions_value = str(summary_data.get('count', 0))
-        if summary_data.get('error'): # If there was an error, display 'Error'
+        sales_val = summary_data.get('sales', 0.0)
+        count_val = summary_data.get('count', 0)
+        error_msg = summary_data.get('error')
+
+        # Determine display values
+        if error_msg and "File not found" not in error_msg: # An error occurred, and it's not 'File not found'
             initial_sales_value = "Error"
             initial_transactions_value = "Error"
-
+        else: # No error, or 'File not found' (in which case sales_val and count_val are 0)
+            initial_sales_value = f"₱{sales_val:,.2f}"
+            initial_transactions_value = str(count_val)
+            
         # Low and critical stock counts
         low_stock_count, critical_stock_count = count_low_and_critical_stock()
 
@@ -441,18 +447,27 @@ class AdminDashboard(Screen):
         """Called when the screen is entered."""
         # Fetch fresh data for dynamic metric cards
         summary_data = get_daily_transaction_summary()
-        todays_sales_value = f"₱{summary_data.get('sales', 0.0):,.2f}"
-        transactions_today_value = str(summary_data.get('count', 0))
+        sales_val = summary_data.get('sales', 0.0)
+        count_val = summary_data.get('count', 0)
+        error_msg = summary_data.get('error')
+
+        # Determine display values
+        if error_msg and "File not found" not in error_msg: # An error occurred, and it's not 'File not found'
+            display_sales_value = "Error"
+            display_transactions_value = "Error"
+        else: # No error, or 'File not found' (in which case sales_val and count_val are 0)
+            display_sales_value = f"₱{sales_val:,.2f}"
+            display_transactions_value = str(count_val)
 
         # Update the text of the value labels in the metric cards
         if hasattr(self, 'sales_metric') and self.sales_metric:
-            self.sales_metric.value_label.text = todays_sales_value if not summary_data.get('error') else "Error"
+            self.sales_metric.value_label.text = display_sales_value
         
         if hasattr(self, 'transactions_metric') and self.transactions_metric:
-            self.transactions_metric.value_label.text = transactions_today_value if not summary_data.get('error') else "Error"
+            self.transactions_metric.value_label.text = display_transactions_value
 
-        if summary_data.get('error'):
-            print(f"[AdminDashboard] on_enter: Error updating summary: {summary_data['error']}")
+        if error_msg:
+            print(f"[AdminDashboard] on_enter: Summary status: {error_msg}")
 
         # Note: Static metrics (low_stock, active_users) are not updated here.
 

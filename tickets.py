@@ -35,4 +35,3 @@ def get_next_ticket_id():
     last_id = sorted(routes_data, key=lambda x: x["ticket_id"]) [-1]["ticket_id"]
     num = int(last_id.split('-')[1]) + 1
     return f"EVT-{num:03d}"
-

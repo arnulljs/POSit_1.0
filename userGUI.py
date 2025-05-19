@@ -74,25 +74,46 @@ class QuantityPopup(Popup):
         self.title = 'Enter Quantity'
         self.size_hint = (0.6, 0.4) # Adjust size as needed
 
+        self.original_quantity_hint = 'Quantity'
+        self.default_hint_text_color = black # Or your preferred default hint color
+
         # Layout for the popup content
         content = BoxLayout(orientation='vertical', spacing=dp(10), padding=dp(10))
 
         # Label to show item name
-        item_label = Label(text=f"Item: {item_data['event']} ({item_data['tier']})",
-                           size_hint_y=None, height=dp(30), color=white)  # Changed text color to white
+        # Label to show item name, tier, and available quantity (centered, larger, new format)
+        item_name_text = f"{item_data['event']}"
+        tier_text = f"{item_data['tier']}"
+        # item_data['stock'] will be the available quantity from RouteSelector
+        # Use .get for safety, defaulting to 'N/A' if 'stock' is not present
+        stock_value = item_data.get('stock', 'N/A')
+        available_quantity_text = f"{stock_value} available"
+
+        full_item_details = f"{item_name_text}\n{tier_text}\n{available_quantity_text}"
+
+        item_label = Label(
+            text=full_item_details,
+            size_hint_y=None,
+            height=dp(80), # Adjusted for 3 lines of larger text
+            color=white,
+            font_size=sp(18), # Slightly larger font size
+            halign='center', # Center align text
+            valign='middle'  # Middle align text vertically
+        )
+        item_label.bind(size=lambda *x: setattr(item_label, 'text_size', (item_label.width - dp(20), None))) # Ensure wrapping with some padding
         content.add_widget(item_label)
 
         # TextInput for quantity
         self.quantity_input = TextInput(
-            hint_text='Quantity',
+            hint_text=self.original_quantity_hint,
             input_type='number',
             multiline=False,
             size_hint_y=None,
             height=dp(40),
             font_size=sp(16),
             padding=[dp(10), dp(10), dp(10), dp(10)], # Adjust padding
-            foreground_color=black,
-            hint_text_color=black
+            foreground_color=black, # Color of the text user types
+            hint_text_color=self.default_hint_text_color
         )
         content.add_widget(self.quantity_input)
 
@@ -123,15 +144,29 @@ class QuantityPopup(Popup):
 
     def add_item_with_quantity(self, instance):
         try:
-            quantity = int(self.quantity_input.text)
+            quantity_text = self.quantity_input.text.strip()
+            if not quantity_text:
+                self.quantity_input.hint_text = "Quantity cannot be empty."
+                self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
+                self.quantity_input.text = "" # Clear input
+                return
+
+            quantity = int(quantity_text)
             if quantity > 0:
+                # Reset hint text on successful validation
+                self.quantity_input.hint_text = self.original_quantity_hint
+                self.quantity_input.hint_text_color = self.default_hint_text_color
                 # Call the method in TransactionPanel to add the item with quantity
                 self.transaction_panel.add_item_to_transaction(self.item_data, quantity)
                 self.dismiss() # Close the popup
             else:
-                display_error_popup("Input Error", "Quantity must be a positive integer.")
+                self.quantity_input.hint_text = "Quantity must be greater than 0."
+                self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
+                self.quantity_input.text = "" # Clear input
         except ValueError:
-            display_error_popup("Input Error", "Invalid quantity. Please enter a whole number.")
+            self.quantity_input.hint_text = "Invalid quantity. Enter a whole number."
+            self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
+            self.quantity_input.text = "" # Clear input
 
 class PaymentMethodPopup(Popup):
     # ObjectProperty to hold the transaction panel instance
@@ -645,17 +680,19 @@ class RouteSelector(BoxLayout):
                 ticket["event"],
                 ticket["tier"],
                 ticket["price"],
-                ticket["availability"]
+                ticket["availability"]  # Assuming this is the stock quantity
             )
             self.route_container.add_widget(card)
 
-    def create_route_card(self, event, tier, price, available=True):
+    def create_route_card(self, event, tier, price, stock_quantity):
         card = BoxLayout(
             orientation='vertical',
             size_hint=(1, None),
             height=dp(140),
             padding=dp(10)
         )
+
+        is_available_for_purchase = stock_quantity > 0
 
         # Create border based on tier and store original color
         border_color = (0.85, 0.7, 0.1, 1) if tier == "Gold Seating" else ((0.75, 0.75, 0.75, 1) if tier == "Silver Seating" else (0.4, 0.4, 0.4, 1))
@@ -670,12 +707,12 @@ class RouteSelector(BoxLayout):
             Color(*border_color, group='color_border')
             card.border_instruction = RoundedRectangle(
                 size=card.size, pos=card.pos, radius=[dp(8)],
-                line_width=dp(1.5) if available else dp(0),
-                width=dp(1.5) if available else dp(0)
+                line_width=dp(1.5) if is_available_for_purchase else dp(0),
+                width=dp(1.5) if is_available_for_purchase else dp(0)
             )
 
-        card.bind(size=lambda obj, val: self._update_card_rect(obj, val, obj.original_border_color, available),
-                 pos=lambda obj, val: self._update_card_rect(obj, val, obj.original_border_color, available))
+        card.bind(size=lambda obj, val: self._update_card_rect(obj, val, obj.original_border_color, is_available_for_purchase),
+                  pos=lambda obj, val: self._update_card_rect(obj, val, obj.original_border_color, is_available_for_purchase))
 
         # Always show artist, tier, and price on their own lines
         event_label = Label(
@@ -703,7 +740,7 @@ class RouteSelector(BoxLayout):
             text=f"₱{price:,}",
             font_size=sp(18),
             bold=True,
-            color=black if available else (0.6, 0.6, 0.6, 1),
+            color=black if is_available_for_purchase else (0.6, 0.6, 0.6, 1),
             size_hint=(1, None),
             height=dp(25),
             halign='left',
@@ -715,7 +752,7 @@ class RouteSelector(BoxLayout):
         card.add_widget(price_label)
 
         # For unavailable card, show "OUT OF STOCK"
-        if not available:
+        if not is_available_for_purchase:
             card.opacity = 0.7
             out_label = Label(
                 text="OUT OF STOCK",
@@ -730,26 +767,26 @@ class RouteSelector(BoxLayout):
             card.add_widget(out_label)
         else:
             # Make card selectable
-            card.bind(on_touch_down=lambda obj, touch: self.select_card(obj, touch, {"event": event, "tier": tier, "price": price}))
+            card.bind(on_touch_down=lambda obj, touch: self.select_card(obj, touch, {"event": event, "tier": tier, "price": price, "stock": stock_quantity}))
 
         return card
 
     def _update_label(self, instance, value):
         instance.text_size = (instance.width, None)
 
-    def _update_card_rect(self, instance, value, border_color, available):
+    def _update_card_rect(self, instance, value, border_color, is_available_for_purchase):
         instance.canvas.before.clear()
         with instance.canvas.before:
             # Always use white background
             Color(*white)
             RoundedRectangle(size=instance.size, pos=instance.pos, radius=[dp(8)])
 
-            # Add border with tier color
+            # Add border with tier color, only if available for purchase
             Color(*border_color, group='color_border')
             instance.border_instruction = RoundedRectangle(
                 size=instance.size, pos=instance.pos, radius=[dp(8)],
-                line_width=dp(1.5) if available else dp(0),
-                width=dp(1.5) if available else dp(0)
+                line_width=dp(1.5) if is_available_for_purchase else dp(0),
+                width=dp(1.5) if is_available_for_purchase else dp(0)
             )
 
     def select_card(self, instance, touch, item_data):

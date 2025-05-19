@@ -415,4 +415,3 @@ if __name__ == '__main__': # For testing this screen directly
 
             return ReportScreen(name='reports_screen')
     TestApp().run()
-
