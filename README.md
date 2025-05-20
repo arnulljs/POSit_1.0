@@ -35,6 +35,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
+```bash
+pip install kivy[full]
+```
+```bash
+pip install matplotlib
+```
 
 4. Set up the MySQL database:
    - Create a MySQL database named `posit_db`
