@@ -1,37 +1,97 @@
 #this is where tickets will be initialized and stored
 
-routes_data = [
-    {"ticket_id": "EVT-001", "event": "Coldplay", "tier": "Standard Seating", "price": 2500, "availability": 120},
-    {"ticket_id": "EVT-002", "event": "Coldplay", "tier": "Silver Seating", "price": 4000, "availability": 80},
-    {"ticket_id": "EVT-003", "event": "Coldplay", "tier": "Gold Seating", "price": 7000, "availability": 30},
-    {"ticket_id": "EVT-004", "event": "Rex Orange County", "tier": "Standard Seating", "price": 1800, "availability": 100},
-    {"ticket_id": "EVT-005", "event": "Rex Orange County", "tier": "Silver Seating", "price": 3200, "availability": 60},
-    {"ticket_id": "EVT-006", "event": "Rex Orange County", "tier": "Gold Seating", "price": 6000, "availability": 20},
-    {"ticket_id": "EVT-007", "event": "Apo Hiking Society", "tier": "Standard Seating", "price": 1500, "availability": 150},
-    {"ticket_id": "EVT-008", "event": "Apo Hiking Society", "tier": "Silver Seating", "price": 2500, "availability": 90},
-    {"ticket_id": "EVT-009", "event": "Apo Hiking Society", "tier": "Gold Seating", "price": 4000, "availability": 25},
-    {"ticket_id": "EVT-010", "event": "Queen", "tier": "Standard Seating", "price": 3000, "availability": 110},
-    {"ticket_id": "EVT-011", "event": "Queen", "tier": "Silver Seating", "price": 5000, "availability": 70},
-    {"ticket_id": "EVT-012", "event": "Queen", "tier": "Gold Seating", "price": 9000, "availability": 15},
-]
+from db_config import execute_query
 
 def get_routes():
-    return routes_data
+    """Get all ticket routes from the database."""
+    query = """
+        SELECT ticket_id, event, tier, price, availability, created_at 
+        FROM tickets 
+        ORDER BY CAST(SUBSTRING(ticket_id, 5) AS UNSIGNED), event, tier
+    """
+    return execute_query(query, fetch=True)
 
-def add_route(route):
-    routes_data.append(route)
+def get_ticket(ticket_id):
+    """Get a specific ticket by ID."""
+    query = """
+        SELECT ticket_id, event, tier, price, availability, created_at 
+        FROM tickets 
+        WHERE ticket_id = %s
+    """
+    result = execute_query(query, (ticket_id,), fetch=True)
+    return result[0] if result else None
 
-def remove_route(index):
-    if 0 <= index < len(routes_data):
-        routes_data.pop(index)
+def add_route(ticket_data):
+    """Add a new ticket route to the database."""
+    query = """
+        INSERT INTO tickets (ticket_id, event, tier, price, availability, created_at)
+        VALUES (%s, %s, %s, %s, %s, NOW())
+    """
+    params = (
+        ticket_data['ticket_id'],
+        ticket_data['event'],
+        ticket_data['tier'],
+        ticket_data['price'],
+        ticket_data['availability']
+    )
+    execute_query(query, params)
 
-def update_route(index, new_data):
-    if 0 <= index < len(routes_data):
-        routes_data[index].update(new_data)
+def remove_route(ticket_index):
+    """Remove a ticket route from the database."""
+    # First get the ticket_id for the given index
+    routes = get_routes()
+    if 0 <= ticket_index < len(routes):
+        ticket_id = routes[ticket_index]['ticket_id']
+        query = "DELETE FROM tickets WHERE ticket_id = %s"
+        execute_query(query, (ticket_id,))
+
+def update_route(ticket_index, ticket_data):
+    """Update an existing ticket route in the database."""
+    query = """
+        UPDATE tickets 
+        SET event = %s, tier = %s, price = %s, availability = %s
+        WHERE ticket_id = %s
+    """
+    params = (
+        ticket_data['event'],
+        ticket_data['tier'],
+        ticket_data['price'],
+        ticket_data['availability'],
+        ticket_data['ticket_id']
+    )
+    execute_query(query, params)
+
+def update_ticket_availability(ticket_index, ticket_data):
+    """Update only the availability of a ticket."""
+    query = """
+        UPDATE tickets 
+        SET availability = %s
+        WHERE ticket_id = %s
+    """
+    params = (
+        ticket_data['availability'],
+        ticket_data['ticket_id']
+    )
+    execute_query(query, params)
 
 def get_next_ticket_id():
-    if not routes_data:
-        return "EVT-001"
-    last_id = sorted(routes_data, key=lambda x: x["ticket_id"]) [-1]["ticket_id"]
-    num = int(last_id.split('-')[1]) + 1
-    return f"EVT-{num:03d}"
+    """Get the next available ticket ID in EVT-XXX format."""
+    query = """
+        SELECT ticket_id 
+        FROM tickets 
+        WHERE ticket_id LIKE 'EVT-%' 
+        ORDER BY CAST(SUBSTRING(ticket_id, 5) AS UNSIGNED) DESC 
+        LIMIT 1
+    """
+    result = execute_query(query, fetch=True)
+    
+    if result and result[0]['ticket_id']:
+        # Extract the number part and increment
+        last_num = int(result[0]['ticket_id'].split('-')[1])
+        next_num = last_num + 1
+    else:
+        # If no existing tickets, start with 1
+        next_num = 1
+    
+    # Format as EVT-XXX with leading zeros
+    return f"EVT-{str(next_num).zfill(3)}"

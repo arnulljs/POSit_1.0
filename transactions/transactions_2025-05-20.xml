@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<DailyTransactions>
+	<Transaction>
+		<TransactionID>00001</TransactionID>
+		<Timestamp>2025-05-20 13:08:38</Timestamp>
+		<Items>
+			<Item>
+				<Event>Queen</Event>
+				<Tier>Standard Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>3000.00</PricePerItem>
+				<ItemTotal>3000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>3000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>360.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>3360.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>20000.00</CashTendered>
+			<Change>16640.00</Change>
+		</Payment>
+	</Transaction>
+</DailyTransactions>

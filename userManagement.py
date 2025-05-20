@@ -35,24 +35,36 @@ def add_user(user_data):
     else:
         new_user = User(user_data['username'], user_data['password'], role)  # User class needs role specified
     
-    auth._users_list.append(new_user)
+    # Save the user to the database
+    new_user.save()
+    
+    # Update the in-memory list
+    auth._users_list = auth.get_users()  # Refresh the list from database
     print(f"User added: {new_user.username} ({new_user.role})")
 
 def update_user(user_id, update_data):
     """Updates an existing user."""
-    for user in auth._users_list:
-        if user.username == user_id:  # Using username as ID
-            if 'username' in update_data:
-                user.username = update_data['username']
-            if 'password' in update_data and update_data['password']:
-                user.hashPass = update_data['password']  # In real app, hash this
-            print(f"User updated: {user.username} ({user.role})")
-            return True
+    # Get the user from the database
+    user = User.get_by_username(user_id)
+    if user:
+        if 'username' in update_data:
+            user.username = update_data['username']
+        if 'password' in update_data and update_data['password']:
+            user.password = update_data['password']
+        # Save changes to database
+        user.save()
+        # Refresh the in-memory list
+        auth._users_list = auth.get_users()
+        print(f"User updated: {user.username} ({user.role})")
+        return True
     return False
 
 def remove_user(user_id):
     """Removes a user by username."""
-    auth._users_list[:] = [user for user in auth._users_list if user.username != user_id]
+    query = "DELETE FROM users WHERE username = %s"
+    execute_query(query, (user_id,))
+    # Refresh the in-memory list
+    auth._users_list = auth.get_users()
     print(f"User removed: {user_id}")
 
 class UserEditPopup(Popup):

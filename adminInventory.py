@@ -250,8 +250,8 @@ class AdminInventoryScreen(Screen):
         table_card.bind(size=lambda instance, value: setattr(instance.bg_rect, 'size', instance.size))
         table_card.bind(pos=lambda instance, value: setattr(instance.bg_rect, 'pos', instance.pos))
         # Table header
-        header = GridLayout(cols=6, size_hint_y=None, height=dp(40))
-        header_cols = ['Ticket ID', 'Event', 'Tier', 'Price (₱)', 'Available', 'Actions']
+        header = GridLayout(cols=7, size_hint_y=None, height=dp(40))
+        header_cols = ['Ticket ID', 'Event', 'Tier', 'Price (₱)', 'Available', 'Created At', 'Actions']
         for col in header_cols:
             header_label = Label(text=col, bold=True, color=(0, 0, 0, 0.8), halign='center', valign='middle')
             header.add_widget(header_label)
@@ -259,7 +259,7 @@ class AdminInventoryScreen(Screen):
         # Table body (scrollable)
         self.scroll = ScrollView(size_hint=(1, 1))
         self.table = GridLayout(
-            cols=6,
+            cols=7,
             size_hint_y=None,
             spacing=1,
             row_force_default=True,
@@ -346,6 +346,21 @@ class AdminInventoryScreen(Screen):
             avail_label.row_bg = row_bg
             avail_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
             self.table.add_widget(avail_label)
+
+            # Created At
+            created_at = ticket.get('created_at', '')
+            if created_at:
+                # Format the datetime to a more readable format
+                created_at = created_at.strftime('%Y-%m-%d %H:%M') if hasattr(created_at, 'strftime') else str(created_at)
+            else:
+                created_at = 'N/A'  # Default value if created_at is None or empty
+            created_at_label = Label(text=created_at, color=(0, 0, 0, 0.8), halign='center', valign='middle')
+            with created_at_label.canvas.before:
+                Color(*row_bg)
+                Rectangle(size=created_at_label.size, pos=created_at_label.pos)
+            created_at_label.row_bg = row_bg
+            created_at_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
+            self.table.add_widget(created_at_label)
 
             # Actions
             # Container for actions cell to handle background and centering of icons_box

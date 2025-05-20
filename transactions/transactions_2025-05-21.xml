@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='utf-8'?>
+<DailyTransactions>
+	<Transaction>
+		<TransactionID>00001</TransactionID>
+		<Timestamp>2025-05-21 01:43:30</Timestamp>
+		<Items>
+			<Item>
+				<Event>Rex Orange County</Event>
+				<Tier>Silver Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>3200.00</PricePerItem>
+				<ItemTotal>3200.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>0.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>0.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>0.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>3500.00</CashTendered>
+			<Change>3500.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00002</TransactionID>
+		<Timestamp>2025-05-21 01:43:32</Timestamp>
+		<Items />
+		<Summary>
+			<Subtotal>0.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>0.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>0.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>0.00</CashTendered>
+			<Change>0.00</Change>
+		</Payment>
+	</Transaction>
+</DailyTransactions>

@@ -5,7 +5,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.togglebutton import ToggleButton
-from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.graphics import Color, Rectangle, RoundedRectangle, Line
 from kivy.metrics import dp, sp
 from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window
@@ -16,14 +16,18 @@ from kivy.animation import Animation
 from kivy.uix.popup import Popup # Import Popup
 from kivy.uix.textinput import TextInput # Import TextInput
 from kivy.uix.widget import Widget # Import Widget
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.image import Image
 import xml.etree.ElementTree as ET # Import ElementTree for XML
 import os # For path operations
 import traceback # For detailed error logging
-from datetime import date # Import date from datetime module
+from datetime import date, datetime # Import date and datetime from datetime module
 # from kivy.uix.spinner import Spinner # No longer needed
 from adminNav import NavBar
 from userNav import UserNavBar
-from tickets import routes_data, get_routes, update_route # Added update_route
+from tickets import get_routes, get_ticket, update_ticket_availability
+import auth
+import re
 
 # Global color definitions
 normal_color = (0.22, 0.27, 0.74, 1)  # #3944BC in RGBA
@@ -151,6 +155,13 @@ class QuantityPopup(Popup):
                 self.quantity_input.text = "" # Clear input
                 return
 
+            # Use regex to ensure only positive whole numbers are accepted
+            if not re.fullmatch(r"[1-9][0-9]*", quantity_text):
+                self.quantity_input.hint_text = "Invalid quantity. Enter a whole number."
+                self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
+                self.quantity_input.text = "" # Clear input
+                return
+
             quantity = int(quantity_text)
             available_stock = self.item_data.get('stock', 0) # Get current stock for this item
 
@@ -158,18 +169,31 @@ class QuantityPopup(Popup):
                 self.quantity_input.hint_text = "Quantity must be greater than 0."
                 self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
                 self.quantity_input.text = "" # Clear input
+                return
             elif quantity > available_stock:
                 self.quantity_input.hint_text = f"Only {available_stock} available. Enter less."
                 self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
                 self.quantity_input.text = "" # Clear input
-            else:
-                # Reset hint text on successful validation
-                self.quantity_input.hint_text = self.original_quantity_hint
-                self.quantity_input.hint_text_color = self.default_hint_text_color
-                # Call the method in TransactionPanel to add the item with quantity
-                self.transaction_panel.add_item_to_transaction(self.item_data, quantity)
-                self.dismiss() # Close the popup
-        except ValueError:
+                return
+
+            # Reset hint text and color on successful validation
+            self.quantity_input.hint_text = self.original_quantity_hint
+            self.quantity_input.hint_text_color = self.default_hint_text_color
+            
+            # Create a copy of item_data to avoid modifying the original
+            item_data_copy = self.item_data.copy()
+            item_data_copy['quantity'] = quantity
+            
+            print(f"[DEBUG] Adding item to transaction: {item_data_copy}")
+            # Call the method in TransactionPanel to add the item with quantity
+            self.transaction_panel.add_item_to_transaction(item_data_copy, quantity)
+            
+            # Reset error state and dismiss popup
+            self.quantity_input.text = ""
+            self.dismiss() # Close the popup
+            
+        except Exception as e:
+            print(f"[DEBUG] Exception in add_item_with_quantity: {e}")
             self.quantity_input.hint_text = "Invalid quantity. Enter a whole number."
             self.quantity_input.hint_text_color = (1, 0, 0, 1) # Red
             self.quantity_input.text = "" # Clear input
@@ -379,7 +403,7 @@ class CheckoutPopup(Popup):
                         new_availability = ticket_data_to_update.get('availability', 0) - quantity_bought
                         ticket_data_to_update['availability'] = max(0, new_availability) # Ensure not negative
                         
-                        update_route(ticket_index_to_update, ticket_data_to_update)
+                        update_ticket_availability(ticket_index_to_update, ticket_data_to_update)
                         print(f"Stock updated for {event_name} ({tier_name}): new availability {ticket_data_to_update['availability']}")
                     else:
                         print(f"WARNING: Could not find ticket {event_name} ({tier_name}) in stock to update availability.")
@@ -460,7 +484,6 @@ class CheckoutPopup(Popup):
 
             # Populate the current transaction_element
             ET.SubElement(transaction_element, "TransactionID").text = tp.transaction_id_text
-            from datetime import datetime
             ET.SubElement(transaction_element, "Timestamp").text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             items_xml = ET.SubElement(transaction_element, "Items")
@@ -1557,7 +1580,6 @@ class MainScreen(Screen):
                 self.root_layout.remove_widget(child)
 
         # Add the correct navigation bar at the top
-        import auth
         user = auth.getCurrentUser()
         if user.get('role') == 'admin':
             self.root_layout.add_widget(NavBar(), index=len(self.root_layout.children))

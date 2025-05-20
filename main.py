@@ -36,54 +36,38 @@ print("Current Session: ", auth.getCurrentUser())'''
 
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager
-from loginGUI import LoginScreen
-from models import User, Admin
-from userGUI import MainScreen
-from adminDashGUI import AdminDashboard
-import traceback
 from kivy.core.window import Window
-import adminNav
+from kivy.metrics import dp
+
+from loginGUI import LoginScreen
+from adminDashGUI import AdminDashboard
+from userGUI import MainScreen
+from models import User, Admin
 import auth
 
 class POSitApp(App):
     def build(self):
-        try:
-            print("Starting app initialization...")
-            # Set window size for desktop
-            Window.size = (1280, 720)
-            Window.minimum_width, Window.minimum_height = 1024, 680
-            
-            # create users
-            user1 = User("bro", "bruhh", "admin") #bro is now an admin role and will redirect to admin dashboard
-            user2 = User("cro", "lolz", "user") #cro is a user role and will redirect to user dashboard
-            admin = Admin("tro", "what")
-            
-            # Add users to both admin.users and auth._users_list
-            admin.addUser(user1)
-            admin.addUser(user2)
-            auth._users_list.extend([user1, user2, admin])
-            print("Users created successfully")
+        # Set window size
+        Window.size = (1200, 800)
+        Window.minimum_width = 1000
+        Window.minimum_height = 600
 
-            sm = ScreenManager()
-            print("Creating login screen...")
-            sm.add_widget(LoginScreen(users=admin.users, name="login"))
-            
-            sm.add_widget(MainScreen(name="user_dashboard"))
-            sm.add_widget(AdminDashboard(name="admin_dashboard"))
-            
-            print("All screens created successfully")
-            return sm
-        except Exception as e:
-            print("Error during app initialization:")
-            print(traceback.format_exc())
-            raise
+        # Create screen manager
+        sm = ScreenManager()
+
+        # Initialize default admin user if not exists
+        auth.init_default_users()
+
+        # Get users from database
+        users = auth.get_users()
+
+        # Add screens
+        sm.add_widget(LoginScreen(users=users, name='login'))
+        sm.add_widget(AdminDashboard(name='admin_dashboard'))
+        sm.add_widget(MainScreen(name='user_dashboard'))
+
+        return sm
 
 if __name__ == '__main__':
-    try:
-        print("Starting POSitApp...")
-        POSitApp().run()
-    except Exception as e:
-        print("Fatal error in app:")
-        print(traceback.format_exc())
-        input("Press Enter to exit...")  # This will keep the window open to see the error
+    POSitApp().run()
         
