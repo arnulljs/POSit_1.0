@@ -46,4 +46,293 @@
 			<Change>0.00</Change>
 		</Payment>
 	</Transaction>
+	<Transaction>
+		<TransactionID>00003</TransactionID>
+		<Timestamp>2025-05-21 02:04:23</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldplay</Event>
+				<Tier>Standard Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>2500.00</PricePerItem>
+				<ItemTotal>2500.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>2500.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>300.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>2800.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>8000000.00</CashTendered>
+			<Change>7997200.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00004</TransactionID>
+		<Timestamp>2025-05-21 02:17:16</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldplay</Event>
+				<Tier>Gold Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>7000.00</PricePerItem>
+				<ItemTotal>7000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>7000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>840.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>7840.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>GCash</PaymentMethod>
+			<CashTendered>80000.00</CashTendered>
+			<Change>72160.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00005</TransactionID>
+		<Timestamp>2025-05-21 02:23:20</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldplay</Event>
+				<Tier>Standard Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>2500.00</PricePerItem>
+				<ItemTotal>2500.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>2500.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>300.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>2800.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>8000000.00</CashTendered>
+			<Change>7997200.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00006</TransactionID>
+		<Timestamp>2025-05-21 02:28:25</Timestamp>
+		<Items>
+			<Item>
+				<Event>Rex Orange County</Event>
+				<Tier>Silver Seating</Tier>
+				<Quantity>8</Quantity>
+				<PricePerItem>3200.00</PricePerItem>
+				<ItemTotal>25600.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>25600.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>3072.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>28672.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>8000000.00</CashTendered>
+			<Change>7971328.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00007</TransactionID>
+		<Timestamp>2025-05-21 02:31:25</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldplay</Event>
+				<Tier>Silver Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>4000.00</PricePerItem>
+				<ItemTotal>4000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>4000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>480.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>4480.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>GCash</PaymentMethod>
+			<CashTendered>80000.00</CashTendered>
+			<Change>75520.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00008</TransactionID>
+		<Timestamp>2025-05-21 02:41:59</Timestamp>
+		<Items>
+			<Item>
+				<Event>wave to earth</Event>
+				<Tier>Standard Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>12000.00</PricePerItem>
+				<ItemTotal>12000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>12000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>1440.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>13440.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>80000.00</CashTendered>
+			<Change>66560.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00009</TransactionID>
+		<Timestamp>2025-05-21 03:07:07</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldplay</Event>
+				<Tier>Silver Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>4000.00</PricePerItem>
+				<ItemTotal>4000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>4000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>480.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>4480.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>20000.00</CashTendered>
+			<Change>15520.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00010</TransactionID>
+		<Timestamp>2025-05-21 03:07:16</Timestamp>
+		<Items />
+		<Summary>
+			<Subtotal>0.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>0.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>0.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>0.00</CashTendered>
+			<Change>0.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00011</TransactionID>
+		<Timestamp>2025-05-21 03:15:10</Timestamp>
+		<Items>
+			<Item>
+				<Event>Rex Orange County</Event>
+				<Tier>Silver Seating</Tier>
+				<Quantity>10</Quantity>
+				<PricePerItem>3200.00</PricePerItem>
+				<ItemTotal>32000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>32000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>3840.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>35840.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>GCash</PaymentMethod>
+			<CashTendered>50000.00</CashTendered>
+			<Change>14160.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00012</TransactionID>
+		<Timestamp>2025-05-21 03:15:35</Timestamp>
+		<Items>
+			<Item>
+				<Event>Rex Orange County</Event>
+				<Tier>Gold Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>6000.00</PricePerItem>
+				<ItemTotal>6000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>6000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>720.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>6720.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>GCash</PaymentMethod>
+			<CashTendered>70000.00</CashTendered>
+			<Change>63280.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00013</TransactionID>
+		<Timestamp>2025-05-21 03:38:22</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldpla</Event>
+				<Tier>Gold Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>3500.00</PricePerItem>
+				<ItemTotal>3500.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>3500.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>420.00</TaxAmount>
+			<DiscountTitle>SUMMER DISCOUNT 10%</DiscountTitle>
+			<DiscountFactor>0.9</DiscountFactor>
+			<DiscountAmount>350.00</DiscountAmount>
+			<Total>3570.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>70000.00</CashTendered>
+			<Change>66430.00</Change>
+		</Payment>
+	</Transaction>
 </DailyTransactions>

@@ -30,14 +30,44 @@ class LoginScreen(Screen):
             Color(*ACCENT_BLUE)
             self.left_rect = Rectangle(size=left_panel.size, pos=left_panel.pos)
         left_panel.bind(size=self._update_left_bg, pos=self._update_left_bg)
-        logo_label = Label(text='[b]POSit[/b]', markup=True, font_size=dp(32), color=(1,1,1,1), size_hint=(1, None), height=dp(50))
-        left_panel.add_widget(logo_label)
-        left_panel.add_widget(Label(text="", size_hint=(1, None), height=dp(10)))
-        tagline = Label(text="Streamlining flight ticket transactions across the Philippines\nwith our advanced Point-of-Sale system.", color=(1,1,1,1), font_size=dp(16), halign='left', valign='top')
-        tagline.bind(size=lambda inst, val: setattr(inst, 'text_size', (inst.width, None)))
-        left_panel.add_widget(tagline)
-        left_panel.add_widget(Label(text="", size_hint=(1, 1)))  # Spacer
-        left_panel.add_widget(Label(text="", size_hint=(1, None), height=dp(40)))
+        
+        # Left side content
+        left_content = BoxLayout(orientation='vertical', padding=[dp(40), dp(40), dp(40), dp(40)])
+        
+        # Title with larger font and proper spacing
+        title = Label(
+            text='POSit',
+            font_size=dp(48),
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint=(1, None),
+            height=dp(60),
+            halign='center',
+            valign='middle'
+        )
+        title.bind(size=self._update_text_size)
+        
+        # Description with proper spacing and alignment
+        description = Label(
+            text='Your all-in-one point of sale solution for seamless transactions and efficient business management.',
+            font_size=dp(16),
+            color=(1, 1, 1, 0.9),
+            size_hint=(1, None),
+            height=dp(80),
+            halign='center',
+            valign='middle',
+            text_size=(None, None)
+        )
+        description.bind(size=self._update_text_size)
+        
+        # Add widgets to left content with proper spacing
+        left_content.add_widget(Widget(size_hint_y=0.3))  # Top spacer
+        left_content.add_widget(title)
+        left_content.add_widget(description)
+        left_content.add_widget(Widget(size_hint_y=0.7))  # Bottom spacer
+
+        # Add left_content to left_panel
+        left_panel.add_widget(left_content)
         root_layout.add_widget(left_panel)
 
         # Right panel (white, fills remaining space)
@@ -185,6 +215,12 @@ class LoginScreen(Screen):
     def _update_password_border(self, instance, value):
         self.password_border.pos = (self.password.x, self.password.y)
         self.password_border.size = (self.password.width, 1)
+
+    def _update_text_size(self, instance, value):
+        instance.text_size = (instance.width, None)
+        instance.texture_update()
+        if instance.texture_size[1] > instance.height:
+            instance.text_size = (instance.width, instance.height)
 
     def login(self, instance):
         uname = self.username.text

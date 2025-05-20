@@ -14,7 +14,10 @@ class User:
 
     def verify_password(self, password):
         """Verify a password against the stored hash."""
-        return bcrypt.checkpw(password.encode('utf-8'), self.password)
+        hashed = self.password
+        if isinstance(hashed, str):
+            hashed = hashed.encode('utf-8')
+        return bcrypt.checkpw(password.encode('utf-8'), hashed)
 
     def __repr__(self):
         return f"User(username='{self.username}', role='{self.role}')"

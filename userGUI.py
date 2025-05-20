@@ -28,6 +28,7 @@ from userNav import UserNavBar
 from tickets import get_routes, get_ticket, update_ticket_availability
 import auth
 import re
+from decimal import Decimal
 
 # Global color definitions
 normal_color = (0.22, 0.27, 0.74, 1)  # #3944BC in RGBA
@@ -377,6 +378,15 @@ class CheckoutPopup(Popup):
         if save_success:
             print(f"Successfully saved XML for {current_transaction_id} to {save_message_or_filename}")
 
+            # Save transaction to database
+            print(f"Saving transaction data for {current_transaction_id} to database...")
+            db_save_success, db_save_message = self.save_transaction_to_db()
+            
+            if not db_save_success:
+                print(f"Warning: Failed to save transaction to database: {db_save_message}")
+                # Continue with the transaction even if DB save fails
+                # We still have the XML backup
+
             # ---- DECREMENT STOCK ----
             try:
                 all_current_tickets = get_routes() # Get fresh list of all tickets
@@ -473,48 +483,59 @@ class CheckoutPopup(Popup):
         """Saves the current transaction details to an XML file."""
         try:
             tp = self.transaction_panel
-            print(f"[XML SAVE] Transaction Panel object: {tp}")
             if not tp.transaction_id_text:
-                print("[XML SAVE] Error: Transaction ID is empty.")
                 return False, "Transaction ID is empty. Cannot save XML."
-            print(f"[XML SAVE] Transaction ID: {tp.transaction_id_text}")
 
             # Create an Element for the current transaction
             transaction_element = ET.Element("Transaction")
+            
+            # Use a dictionary to store all elements for faster access
+            elements = {
+                'TransactionID': tp.transaction_id_text,
+                'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            # Add basic transaction info
+            for key, value in elements.items():
+                ET.SubElement(transaction_element, key).text = str(value)
 
-            # Populate the current transaction_element
-            ET.SubElement(transaction_element, "TransactionID").text = tp.transaction_id_text
-            ET.SubElement(transaction_element, "Timestamp").text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+            # Add items in a single loop
             items_xml = ET.SubElement(transaction_element, "Items")
             for item in tp.transaction_items:
                 item_xml = ET.SubElement(items_xml, "Item")
-                ET.SubElement(item_xml, "Event").text = item['event']
-                ET.SubElement(item_xml, "Tier").text = item['tier']
-                ET.SubElement(item_xml, "Quantity").text = str(item['quantity'])
-                ET.SubElement(item_xml, "PricePerItem").text = f"{item['price']:.2f}"
-                ET.SubElement(item_xml, "ItemTotal").text = f"{item['price'] * item['quantity']:.2f}"
+                item_data = {
+                    'Event': item['event'],
+                    'Tier': item['tier'],
+                    'Quantity': str(item['quantity']),
+                    'PricePerItem': f"{item['price']:.2f}",
+                    'ItemTotal': f"{item['price'] * item['quantity']:.2f}"
+                }
+                for key, value in item_data.items():
+                    ET.SubElement(item_xml, key).text = str(value)
 
+            # Add summary in a single block
             summary_xml = ET.SubElement(transaction_element, "Summary")
-            ET.SubElement(summary_xml, "Subtotal").text = f"{tp.subtotal:.2f}"
-            ET.SubElement(summary_xml, "TaxRate").text = f"{TAX_RATE*100:.0f}%"
-            ET.SubElement(summary_xml, "TaxAmount").text = f"{tp.tax:.2f}"
-            ET.SubElement(summary_xml, "DiscountTitle").text = tp.selected_discount['title']
-            ET.SubElement(summary_xml, "DiscountFactor").text = str(tp.selected_discount['factor'])
-            ET.SubElement(summary_xml, "DiscountAmount").text = f"{tp.discount_amount:.2f}"
-            ET.SubElement(summary_xml, "Total").text = f"{tp.total:.2f}"
+            summary_data = {
+                'Subtotal': f"{tp.subtotal:.2f}",
+                'TaxRate': f"{TAX_RATE*100:.0f}%",
+                'TaxAmount': f"{tp.tax:.2f}",
+                'DiscountTitle': tp.selected_discount['title'],
+                'DiscountFactor': str(tp.selected_discount['factor']),
+                'DiscountAmount': f"{tp.discount_amount:.2f}",
+                'Total': f"{tp.total:.2f}"
+            }
+            for key, value in summary_data.items():
+                ET.SubElement(summary_xml, key).text = str(value)
 
+            # Add payment info
             payment_xml = ET.SubElement(transaction_element, "Payment")
-            ET.SubElement(payment_xml, "PaymentMethod").text = tp.selected_payment_method
-
-            try:
-                cash_tendered_float = float(tp.cash_tendered)
-                ET.SubElement(payment_xml, "CashTendered").text = f"{cash_tendered_float:.2f}"
-                change = cash_tendered_float - tp.total
-                ET.SubElement(payment_xml, "Change").text = f"{change:.2f}"
-            except ValueError:
-                ET.SubElement(payment_xml, "CashTendered").text = tp.cash_tendered # Save original if not float
-                ET.SubElement(payment_xml, "Change").text = "Invalid Cash Amount for Change Calc"
+            payment_data = {
+                'PaymentMethod': tp.selected_payment_method,
+                'CashTendered': f"{float(tp.cash_tendered):.2f}",
+                'Change': f"{float(tp.cash_tendered) - tp.total:.2f}"
+            }
+            for key, value in payment_data.items():
+                ET.SubElement(payment_xml, key).text = str(value)
 
             # --- Logic for daily XML file ---
             today_str = date.today().strftime("%Y-%m-%d")
@@ -522,47 +543,114 @@ class CheckoutPopup(Popup):
             if not os.path.exists(transactions_dir):
                 os.makedirs(transactions_dir)
             daily_filename = os.path.join(transactions_dir, f"transactions_{today_str}.xml")
-            print(f"[XML SAVE] Daily filename: {daily_filename}")
 
-            daily_root_tag = "DailyTransactions"
-            tree = None
-            daily_root = None
-
-            if os.path.exists(daily_filename):
-                try:
+            # Create or load the daily transactions file
+            try:
+                if os.path.exists(daily_filename):
                     tree = ET.parse(daily_filename)
                     daily_root = tree.getroot()
-                    if daily_root.tag != daily_root_tag: # Check if root tag is what we expect
-                        print(f"[XML SAVE] Warning: Existing file {daily_filename} has unexpected root tag '{daily_root.tag}'. Creating new structure.")
-                        daily_root = None # Force creation of new root
-                except ET.ParseError:
-                    print(f"[XML SAVE] Warning: Could not parse existing file {daily_filename}. A new file will be created.")
-                    # Optionally, you could back up the corrupted file here
-                    daily_root = None # Force creation of new root
-
-            if daily_root is None: # If file didn't exist, was unparsable, or had wrong root tag
-                daily_root = ET.Element(daily_root_tag)
+                    if daily_root.tag != "DailyTransactions":
+                        daily_root = ET.Element("DailyTransactions")
+                        tree = ET.ElementTree(daily_root)
+                else:
+                    daily_root = ET.Element("DailyTransactions")
+                    tree = ET.ElementTree(daily_root)
+            except ET.ParseError:
+                daily_root = ET.Element("DailyTransactions")
                 tree = ET.ElementTree(daily_root)
 
-            daily_root.append(transaction_element) # Add current transaction to the daily root
-            ET.indent(tree, space="\t", level=0) # For pretty printing the whole tree
-
-            # Get and print the absolute path for clarity
-            try:
-                full_path = os.path.abspath(daily_filename)
-                print(f"[XML SAVE] Attempting to write XML to full path: {full_path}")
-            except Exception as path_e:
-                print(f"[XML SAVE] Could not determine absolute path: {path_e}")
-                full_path = daily_filename # Fallback to relative filename for messages
-
+            # Add the transaction and save
+            daily_root.append(transaction_element)
+            ET.indent(tree, space="\t", level=0)
             tree.write(daily_filename, encoding="utf-8", xml_declaration=True)
-            print(f"[XML SAVE] Successfully wrote XML to {full_path}")
-            return True, full_path
+
+            return True, daily_filename
 
         except Exception as e:
             error_details = traceback.format_exc()
             print(f"[XML SAVE] CRITICAL ERROR saving transaction to XML: {e}\n{error_details}")
             return False, f"XML generation/write error: {str(e)}\nSee console for details."
+
+    def save_transaction_to_db(self):
+        """Saves the current transaction details to the database."""
+        try:
+            tp = self.transaction_panel
+            if not tp.transaction_id_text:
+                return False, "Transaction ID is empty. Cannot save to database."
+
+            # Get the current user's ID from the session
+            from auth import session
+            user_id = None
+            if session["username"]:
+                from db_config import execute_query
+                query = "SELECT id FROM users WHERE username = %s"
+                result = execute_query(query, (session["username"],), fetch=True)
+                if result:
+                    user_id = result[0]['id']
+
+            # Get all ticket IDs in one query to avoid multiple database calls
+            ticket_ids = {}
+            ticket_query = "SELECT ticket_id, event, tier FROM tickets"
+            ticket_results = execute_query(ticket_query, fetch=True)
+            for ticket in ticket_results:
+                key = (ticket['event'], ticket['tier'])
+                ticket_ids[key] = ticket['ticket_id']
+
+            # Prepare all transaction items for batch insert
+            item_values = []
+            for item in tp.transaction_items:
+                key = (item['event'], item['tier'])
+                if key not in ticket_ids:
+                    return False, f"Ticket not found in database: {item['event']} - {item['tier']}"
+                
+                ticket_id = ticket_ids[key]
+                item_values.append((
+                    ticket_id,
+                    item['quantity'],
+                    float(item['price'])
+                ))
+
+            # Insert transaction and items in a single transaction
+            from db_config import execute_query
+            transaction_query = """
+                INSERT INTO transactions 
+                (transaction_id, user_id, total_amount, tax_amount, discount_amount, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
+            """
+            transaction_params = (
+                tp.transaction_id_text,
+                user_id,
+                float(tp.total),
+                float(tp.tax),
+                float(tp.discount_amount)
+            )
+            
+            # Execute transaction insert and get ID
+            execute_query(transaction_query, transaction_params)
+            get_trans_id_query = "SELECT id FROM transactions WHERE transaction_id = %s"
+            trans_result = execute_query(get_trans_id_query, (tp.transaction_id_text,), fetch=True)
+            
+            if not trans_result:
+                return False, "Failed to retrieve inserted transaction ID"
+            
+            transaction_db_id = trans_result[0]['id']
+
+            # Insert transaction items one by one
+            if item_values:
+                item_query = """
+                    INSERT INTO transaction_items 
+                    (transaction_id, ticket_id, quantity, price_at_sale, created_at)
+                    VALUES (%s, %s, %s, %s, NOW())
+                """
+                for item in item_values:
+                    execute_query(item_query, (transaction_db_id,) + item)
+
+            return True, "Transaction saved to database successfully"
+
+        except Exception as e:
+            error_details = traceback.format_exc()
+            print(f"[DB SAVE] CRITICAL ERROR saving transaction to database: {e}\n{error_details}")
+            return False, f"Database error: {str(e)}\nSee console for details."
 
 class RouteSelector(BoxLayout):
     def __init__(self, transaction_panel, **kwargs):
@@ -1315,6 +1403,10 @@ class TransactionPanel(BoxLayout):
 
     # Method to add an item to the transaction with a specified quantity
     def add_item_to_transaction(self, item_data, quantity):
+        # Convert Decimal price to float
+        if isinstance(item_data['price'], Decimal):
+            item_data['price'] = float(item_data['price'])
+            
         # Check if the item is already in the list
         found = False
         for item in self.transaction_items:
@@ -1332,7 +1424,6 @@ class TransactionPanel(BoxLayout):
         else:
              # If item was found and quantity updated, need to trigger update manually for ListProperty
              self.transaction_items = self.transaction_items[:]
-
 
         self.update_items_display()
         self.calculate_totals() # Recalculate totals after adding/updating item
@@ -1428,22 +1519,41 @@ class TransactionPanel(BoxLayout):
 
     # Method to calculate subtotal, tax, and total
     def calculate_totals(self):
-        self.subtotal = sum(item['price'] * item['quantity'] for item in self.transaction_items)
-        # Apply discount to subtotal
-        discounted_subtotal = self.subtotal * self.selected_discount['factor']
-        self.discount_amount = self.subtotal - discounted_subtotal # Calculate the discount value
-        self.tax = discounted_subtotal * TAX_RATE # Calculate tax on the discounted subtotal
-        self.total = discounted_subtotal + self.tax # Calculate total with discounted subtotal and tax
+        # Calculate subtotal
+        subtotal = 0.0
+        for item in self.transaction_items:
+            # Ensure price is float
+            price = float(item['price']) if isinstance(item['price'], Decimal) else item['price']
+            subtotal += price * item['quantity']
+        
+        # Calculate tax
+        tax = subtotal * TAX_RATE
+        
+        # Calculate discount amount
+        discount_amount = 0.0
+        if self.selected_discount and self.selected_discount.get('factor'):
+            discount_amount = subtotal * (1 - float(self.selected_discount['factor']))
+        
+        # Update properties
+        self.subtotal = subtotal
+        self.tax = tax
+        self.discount_amount = discount_amount
+        self.total = subtotal + tax - discount_amount
+        
+        # Update display
+        self.update_total_display()
 
 
     # Method to update the display of the total amounts
     def update_total_display(self):
-        self.subtotal_amount_label.text = f"₱{self.subtotal:,.2f}"
-        self.tax_amount_label.text = f"₱{self.tax:,.2f}"
-        # Update the discount amount label
-        self.discount_amount_label.text = f"-₱{self.discount_amount:,.2f}" if self.discount_amount > 0 else "₱0.00"
-        self.total_amount_label.text = f"₱{self.total:,.2f}"
-        self.checkout_btn.text = f"Checkout"
+        # Update all amount labels with float values
+        self.subtotal_amount_label.text = f"₱{float(self.subtotal):,.2f}"
+        self.tax_amount_label.text = f"₱{float(self.tax):,.2f}"
+        self.discount_amount_label.text = f"-₱{float(self.discount_amount):,.2f}"
+        self.total_amount_label.text = f"₱{float(self.total):,.2f}"
+        
+        # Update checkout button text
+        self.checkout_btn.text = f"Checkout ₱{float(self.total):,.2f}"
 
     # Method to show the payment method popup
     def show_payment_method_popup(self, instance):
@@ -1598,6 +1708,3 @@ class MainScreen(Screen):
         with instance.canvas.before:
             Color(*gray_bg)
             Rectangle(size=instance.size, pos=instance.pos)
-
-    def refresh_items(self, instance):
-        self.route_selector.load_routes(get_routes())

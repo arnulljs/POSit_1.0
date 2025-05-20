@@ -169,6 +169,113 @@ class TicketEditPopup(Popup):
             self.on_save(data)
         self.dismiss()
 
+class InventoryTable(BoxLayout):
+    def __init__(self, parent_screen=None, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.spacing = 0
+        self.padding = 0
+        self._rows = []
+        self._current_page = 0
+        self._items_per_page = 20
+        self._total_items = 0
+        self._search_query = ""
+        self.size_hint_y = None
+        self.bind(minimum_height=self.setter('height'))
+        self.parent_screen = parent_screen
+        
+    def refresh_data(self, routes, query=""):
+        self._search_query = query.lower()
+        self._rows = [ticket for ticket in routes if 
+                     not query or
+                     query in ticket['ticket_id'].lower() or 
+                     query in ticket['event'].lower() or 
+                     query in ticket['tier'].lower()]
+        self._total_items = len(self._rows)
+        self._current_page = 0
+        self.clear_widgets()
+        self._load_current_page()
+        
+    def _load_current_page(self):
+        start_idx = self._current_page * self._items_per_page
+        end_idx = min(start_idx + self._items_per_page, self._total_items)
+        
+        # Pre-calculate row backgrounds
+        row_bg = [(1, 1, 1, 1), ROW_ALT_GRAY]
+        
+        for idx in range(start_idx, end_idx):
+            ticket = self._rows[idx]
+            current_bg = row_bg[idx % 2]
+            
+            # Create row container (horizontal)
+            row = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(40))
+            with row.canvas.before:
+                Color(*current_bg)
+                row.bg_rect = Rectangle(size=row.size, pos=row.pos)
+            row.bind(size=self._update_row_bg, pos=self._update_row_bg)
+
+            # Add cells (7 columns)
+            row.add_widget(Label(text=str(ticket['ticket_id']), color=(0, 0, 0, 0.8), size_hint=(1, 1)))
+            row.add_widget(Label(text=str(ticket['event']), color=(0, 0, 0, 0.8), size_hint=(1, 1)))
+            row.add_widget(Label(text=str(ticket['tier']), color=(0, 0, 0, 0.8), size_hint=(1, 1)))
+            row.add_widget(Label(text=f"{ticket['price']:,}", color=(0, 0, 0, 0.8), size_hint=(1, 1)))
+            row.add_widget(Label(text=str(ticket['availability']), color=(0, 0, 0, 0.8), size_hint=(1, 1)))
+            row.add_widget(Label(text=str(ticket.get('created_at', 'N/A')), color=(0, 0, 0, 0.8), size_hint=(1, 1)))
+
+            # Actions cell (center icons vertically and horizontally)
+            actions = BoxLayout(size_hint=(1, 1), orientation='vertical', padding=[0, 0, 0, 0])
+            icons = BoxLayout(
+                orientation='horizontal',
+                spacing=dp(6),
+                size_hint=(None, None),
+                width=dp(84),
+                height=dp(24),
+                pos_hint={'center_x': 0.5, 'center_y': 0.5}
+            )
+            edit_btn = IconButton(source='icons/edit.png', size_hint=(None, None), width=dp(24), height=dp(24))
+            edit_btn.bind(on_release=lambda btn, tid=ticket['ticket_id']: self.parent_screen.open_edit_popup(tid) if self.parent_screen else None)
+            del_btn = IconButton(source='icons/delete.png', size_hint=(None, None), width=dp(24), height=dp(24))
+            del_btn.bind(on_release=lambda btn, tid=ticket['ticket_id']: self.parent_screen.delete_ticket(tid) if self.parent_screen else None)
+            add_stock_btn = Button(
+                text='+',
+                font_size=dp(16),
+                bold=True,
+                color=ACCENT_BLUE,
+                size_hint=(None, None),
+                width=dp(24),
+                height=dp(24),
+                background_normal='',
+                background_color=(0, 0, 0, 0)
+            )
+            add_stock_btn.bind(on_release=lambda btn, tid=ticket['ticket_id']: self.parent_screen.increase_stock(tid) if self.parent_screen else None)
+            icons.add_widget(edit_btn)
+            icons.add_widget(del_btn)
+            icons.add_widget(add_stock_btn)
+            # Center icons in the actions cell
+            actions.add_widget(Widget(size_hint_y=1))  # Top spacer
+            actions.add_widget(icons)
+            actions.add_widget(Widget(size_hint_y=1))  # Bottom spacer
+            row.add_widget(actions)
+
+            self.add_widget(row)
+    
+    def _update_row_bg(self, instance, value):
+        if hasattr(instance, 'bg_rect'):
+            instance.bg_rect.size = instance.size
+            instance.bg_rect.pos = instance.pos
+    
+    def next_page(self):
+        if (self._current_page + 1) * self._items_per_page < self._total_items:
+            self._current_page += 1
+            self.clear_widgets()
+            self._load_current_page()
+    
+    def prev_page(self):
+        if self._current_page > 0:
+            self._current_page -= 1
+            self.clear_widgets()
+            self._load_current_page()
+
 class AdminInventoryScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -249,22 +356,22 @@ class AdminInventoryScreen(Screen):
             table_card.bg_rect = RoundedRectangle(size=table_card.size, pos=table_card.pos, radius=[(dp(16), dp(16))] * 4)
         table_card.bind(size=lambda instance, value: setattr(instance.bg_rect, 'size', instance.size))
         table_card.bind(pos=lambda instance, value: setattr(instance.bg_rect, 'pos', instance.pos))
-        # Table header
-        header = GridLayout(cols=7, size_hint_y=None, height=dp(40))
-        header_cols = ['Ticket ID', 'Event', 'Tier', 'Price (₱)', 'Available', 'Created At', 'Actions']
-        for col in header_cols:
-            header_label = Label(text=col, bold=True, color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            header.add_widget(header_label)
+        
+        # Add table header
+        header = BoxLayout(size_hint=(1, None), height=dp(40))
+        headers = ['Ticket ID', 'Event', 'Tier', 'Price', 'Available', 'Created At', 'Actions']
+        for header_text in headers:
+            header.add_widget(Label(
+                text=header_text,
+                color=(0, 0, 0, 0.8),
+                bold=True,
+                size_hint=(1, 1)
+            ))
         table_card.add_widget(header)
+        
         # Table body (scrollable)
         self.scroll = ScrollView(size_hint=(1, 1))
-        self.table = GridLayout(
-            cols=7,
-            size_hint_y=None,
-            spacing=1,
-            row_force_default=True,
-            row_default_height=dp(40)
-        )
+        self.table = InventoryTable(parent_screen=self, size_hint_y=None)
         self.table.bind(minimum_height=self.table.setter('height'))
         self.scroll.add_widget(self.table)
         table_card.add_widget(self.scroll)
@@ -287,127 +394,10 @@ class AdminInventoryScreen(Screen):
         ]
 
     def refresh_table(self):
-        self.table.clear_widgets()
-        query = self.search_input.text.strip().lower()
         routes = get_routes()
-        
-        for idx, ticket in enumerate(routes):
-            # Filter based on search query
-            if query and not (query in ticket['ticket_id'].lower() or 
-                             query in ticket['event'].lower() or 
-                             query in ticket['tier'].lower()):
-                continue
-                
-            # Row with alternating background (use very light gray)
-            row_bg = (1, 1, 1, 1) if idx % 2 == 0 else ROW_ALT_GRAY
-            
-            # Ticket ID
-            id_label = Label(text=ticket['ticket_id'], color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            with id_label.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=id_label.size, pos=id_label.pos)
-            id_label.row_bg = row_bg
-            id_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.table.add_widget(id_label)
+        query = self.search_input.text.strip()
+        self.table.refresh_data(routes, query)
 
-            # Event
-            event_label = Label(text=ticket['event'], color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            with event_label.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=event_label.size, pos=event_label.pos)
-            event_label.row_bg = row_bg
-            event_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.table.add_widget(event_label)
-
-            # Tier
-            tier_label = Label(text=ticket['tier'], color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            with tier_label.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=tier_label.size, pos=tier_label.pos)
-            tier_label.row_bg = row_bg
-            tier_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.table.add_widget(tier_label)
-
-            # Price
-            price_text = f"{ticket['price']:,}"
-            price_label = Label(text=price_text, color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            with price_label.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=price_label.size, pos=price_label.pos)
-            price_label.row_bg = row_bg
-            price_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.table.add_widget(price_label)
-
-            # Available
-            avail_label = Label(text=str(ticket['availability']), color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            with avail_label.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=avail_label.size, pos=avail_label.pos)
-            avail_label.row_bg = row_bg
-            avail_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.table.add_widget(avail_label)
-
-            # Created At
-            created_at = ticket.get('created_at', '')
-            if created_at:
-                # Format the datetime to a more readable format
-                created_at = created_at.strftime('%Y-%m-%d %H:%M') if hasattr(created_at, 'strftime') else str(created_at)
-            else:
-                created_at = 'N/A'  # Default value if created_at is None or empty
-            created_at_label = Label(text=created_at, color=(0, 0, 0, 0.8), halign='center', valign='middle')
-            with created_at_label.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=created_at_label.size, pos=created_at_label.pos)
-            created_at_label.row_bg = row_bg
-            created_at_label.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-            self.table.add_widget(created_at_label)
-
-            # Actions
-            # Container for actions cell to handle background and centering of icons_box
-            actions_cell_container = BoxLayout(size_hint=(1, 1)) # Fills the cell
-            with actions_cell_container.canvas.before:
-                Color(*row_bg)
-                Rectangle(size=actions_cell_container.size, pos=actions_cell_container.pos)
-            actions_cell_container.row_bg = row_bg
-            actions_cell_container.bind(size=self._update_cell_bg, pos=self._update_cell_bg)
-
-            # Inner BoxLayout for the icons, this one will be centered
-            icons_box = BoxLayout(
-                orientation='horizontal',
-                spacing=dp(6),
-                size_hint=(None, None), 
-                width=dp(24 * 3 + 6 * 2),  # 3 icons * 24dp + 2 spacings * 6dp = 84dp
-                height=dp(24), # Height of icons
-                pos_hint={'center_x': 0.7, 'center_y': 0.5}
-            )
-
-            # Edit button (icon)
-            edit_btn = IconButton(source='icons/edit.png', size_hint=(None, None), width=dp(24), height=dp(24))
-            edit_btn.bind(on_release=lambda btn, tid=ticket['ticket_id']: self.open_edit_popup(tid))
-            icons_box.add_widget(edit_btn)
-
-            # Delete button (icon)
-            del_btn = IconButton(source='icons/delete.png', size_hint=(None, None), width=dp(24), height=dp(24))
-            del_btn.bind(on_release=lambda btn, tid=ticket['ticket_id']: self.delete_ticket(tid))
-            icons_box.add_widget(del_btn)
-
-            # Add stock button (plus icon)
-            add_stock_btn = Button(text='+', font_size=dp(16), bold=True, color=ACCENT_BLUE, 
-                                   size_hint=(None, None), width=dp(24), height=dp(24),
-                                   background_normal='', background_color=(0, 0, 0, 0))
-            add_stock_btn.bind(on_release=lambda btn, tid=ticket['ticket_id']: self.increase_stock(tid))
-            icons_box.add_widget(add_stock_btn)
-
-            actions_cell_container.add_widget(icons_box)
-            self.table.add_widget(actions_cell_container)
-    
-    def _update_cell_bg(self, instance, *args):
-        instance.canvas.before.clear()
-        color = getattr(instance, 'row_bg', (1, 1, 1, 1))
-        with instance.canvas.before:
-            Color(*color)
-            Rectangle(size=instance.size, pos=instance.pos)
-    
     def open_edit_popup(self, ticket_id_to_edit):
         current_routes = get_routes()
         ticket_to_edit_data = None

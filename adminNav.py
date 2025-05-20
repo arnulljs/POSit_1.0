@@ -65,15 +65,19 @@ class NavBar(BoxLayout):
 
         # User info with dropdown
         from kivy.uix.boxlayout import BoxLayout as KivyBoxLayout
-        user_box = KivyBoxLayout(orientation='horizontal', size_hint_x=None, width=dp(150), spacing=dp(8))
+        import auth
+        current_user = auth.getCurrentUser()
+        username = current_user.get('username', 'Administrator') or 'Administrator'
+        user_box = KivyBoxLayout(orientation='horizontal', size_hint_x=None, width=dp(150), spacing=dp(8), pos_hint={'center_y': 0.5})
         user_btn = Button(
-            text='Administrator',
+            text=username,
             size_hint=(None, None),
             size=(dp(90), dp(32)),
             background_normal='',
             background_color=ACCENT_BLUE,
             color=(1,1,1,1),
-            font_size=dp(14)
+            font_size=dp(14),
+            pos_hint={'center_y': 0.5}
         )
         avatar_btn = Button(
             text='A',
@@ -82,7 +86,8 @@ class NavBar(BoxLayout):
             background_normal='',
             background_color=ACCENT_BLUE,
             color=(1,1,1,1),
-            font_size=dp(16)
+            font_size=dp(16),
+            pos_hint={'center_y': 0.5}
         )
         # Dropdown for logout
         dropdown = DropDown()
@@ -92,7 +97,6 @@ class NavBar(BoxLayout):
         def open_dropdown(instance):
             dropdown.open(instance)
         user_btn.bind(on_release=open_dropdown)
-        avatar_btn.bind(on_release=open_dropdown)
         user_box.add_widget(user_btn)
         user_box.add_widget(avatar_btn)
         self.add_widget(user_box)

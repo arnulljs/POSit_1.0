@@ -21,6 +21,13 @@ from adminInventory import AdminInventoryScreen
 from adminNav import NavBar
 from tickets import get_routes
 
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for Kivy
+import matplotlib.pyplot as plt
+import io
+from kivy.core.image import Image as CoreImage
+from kivy.uix.image import Image as KivyImage
+
 
 class HomeScreen(Screen):
     """
@@ -279,18 +286,18 @@ class AdminDashboard(Screen):
         super().__init__(**kwargs)
         self.name = "admin_dashboard"
         
-        # Main layout
-        main_layout = BoxLayout(orientation='vertical', padding=dp(0), spacing=dp(0))
-        
-        # Add NavBar (no arguments)
-        main_layout.add_widget(NavBar())
-        
-        # Add a padded container for the dashboard content
+        # Main layout: vertical, NavBar at top, content below
+        main_layout = BoxLayout(orientation='vertical', spacing=0, padding=0)
+        navbar = NavBar()
+        navbar.size_hint_y = None
+        navbar.height = dp(50)
+        main_layout.add_widget(navbar)
+
+        # Content area (no top padding)
         content_container = BoxLayout(orientation='vertical', padding=[dp(32), dp(16), dp(32), dp(16)], spacing=dp(16))
         
         # Header with title and logout button
         header = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(60))
-        
         title_label = Label(
             text="Admin Dashboard",
             font_size=dp(24),
@@ -299,19 +306,7 @@ class AdminDashboard(Screen):
             halign='left'
         )
         title_label.bind(size=self._update_text_size)
-        
-        logout_btn = Button(
-            text="Logout",
-            size_hint=(None, None),
-            size=(dp(120), dp(40)),
-            background_normal='',
-            background_color=(0.22, 0.27, 0.74, 1),
-            color=(1, 1, 1, 1)
-        )
-        logout_btn.bind(on_release=self.logout)
-        
         header.add_widget(title_label)
-        header.add_widget(logout_btn)
         
         # Subtitle
         subtitle = Label(
@@ -407,19 +402,15 @@ class AdminDashboard(Screen):
         )
         trend_title.bind(size=self._update_text_size)
         
-        # Placeholder for chart
-        chart_placeholder = BoxLayout(size_hint=(1, 1))
-        with chart_placeholder.canvas:
-            Color(0.95, 0.95, 0.95, 1)  # Light gray
-            RoundedRectangle(pos=chart_placeholder.pos, size=chart_placeholder.size, radius=[(dp(10), dp(10))] * 4)
-        chart_placeholder.bind(pos=self._update_placeholder, size=self._update_placeholder)
-        
-        chart_label = Label(
-            text="Sales chart visualization would appear here",
-            font_size=dp(16),
-            color=(0, 0, 0, 0.5)
-        )
-        chart_placeholder.add_widget(chart_label)
+        # Chart box with padding and white rounded rectangle, wide and tall
+        self.chart_box = BoxLayout(size_hint=(1, None), height=dp(320), padding=[dp(32), dp(24), dp(32), dp(24)])
+        with self.chart_box.canvas.before:
+            Color(1, 1, 1, 1)  # White
+            self.chart_bg_rect = RoundedRectangle(pos=self.chart_box.pos, size=self.chart_box.size, radius=[(dp(24), dp(24))] * 4)
+        self.chart_box.bind(pos=self._update_chart_bg, size=self._update_chart_bg)
+        self.chart_img = KivyImage(allow_stretch=True, keep_ratio=True, size_hint=(1, 1))
+        self.chart_box.add_widget(self.chart_img)
+        self.update_sales_trend_graph()  # Draw initial graph
         
         # Add all sections to content_container
         content_container.add_widget(header)
@@ -428,9 +419,9 @@ class AdminDashboard(Screen):
         content_container.add_widget(alerts_title)
         content_container.add_widget(alerts_scroll)
         content_container.add_widget(trend_title)
-        content_container.add_widget(chart_placeholder)
+        content_container.add_widget(self.chart_box)
         
-        # Add content_container to main_layout
+        # At the end, add content_container to main_layout
         main_layout.add_widget(content_container)
         
         # Add everything to the screen
@@ -491,6 +482,10 @@ class AdminDashboard(Screen):
                 })
             for alert_data in updated_alerts:
                 self.alerts_container.add_widget(AlertItem(alert_data["message"], alert_data["level"]))
+
+        # Refresh the sales trend graph every time the screen is loaded
+        self.update_sales_trend_graph()
+
     def _update_rect(self, *args):
         self.rect.size = self.size
         self.rect.pos = self.pos
@@ -498,15 +493,71 @@ class AdminDashboard(Screen):
     def _update_text_size(self, instance, value):
         instance.text_size = (instance.width, None)
     
-    def _update_placeholder(self, instance, value):
-        instance.canvas.clear()
-        with instance.canvas:
-            Color(0.95, 0.95, 0.95, 1)  # Light gray
-            RoundedRectangle(pos=instance.pos, size=instance.size, radius=[(dp(10), dp(10))] * 4)
+    def _update_chart_bg(self, instance, value):
+        self.chart_bg_rect.pos = instance.pos
+        self.chart_bg_rect.size = instance.size
     
     def logout(self, instance):
         auth.logout()
         self.manager.current = "login"
+
+    def update_sales_trend_graph(self):
+        # Get today's transactions (from XML), or most recent if today's is missing
+        from datetime import datetime
+        import xml.etree.ElementTree as ET
+        import os
+        transactions_dir = "transactions"
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        filename = os.path.join(transactions_dir, f"transactions_{today_str}.xml")
+        # If today's file does not exist, use the most recent XML file
+        most_recent_date = today_str
+        if not os.path.exists(filename):
+            xml_files = [f for f in os.listdir(transactions_dir) if f.startswith('transactions_') and f.endswith('.xml')]
+            if xml_files:
+                xml_files.sort(reverse=True)
+                filename = os.path.join(transactions_dir, xml_files[0])
+                # Extract date from filename (transactions_YYYY-MM-DD.xml)
+                most_recent_date = xml_files[0].replace('transactions_', '').replace('.xml', '')
+        sales_by_hour = {h: 0 for h in range(24)}
+        if os.path.exists(filename):
+            try:
+                tree = ET.parse(filename)
+                daily_root = tree.getroot()
+                for trans_elem in daily_root.findall("Transaction"):
+                    timestamp = trans_elem.findtext("Timestamp", "")
+                    if timestamp:
+                        try:
+                            hour = int(timestamp.split()[1].split(":")[0])
+                            sales_by_hour[hour] += 1
+                        except Exception:
+                            continue
+            except Exception:
+                pass
+        hours = list(sales_by_hour.keys())
+        counts = [sales_by_hour[h] for h in hours]
+        # Plot with matplotlib
+        plt.figure(figsize=(12, 3.5), facecolor='none')
+        ax = plt.gca()
+        ax.set_facecolor('none')  # Transparent axes background
+        plt.plot(hours, counts, marker='o', color='#3944BC', linewidth=2)
+        plt.title(f'Transactions per Hour ({most_recent_date})', fontsize=12)
+        plt.xlabel('Hour of Day')
+        plt.ylabel('Transactions')
+        plt.xticks(range(0, 24, 1))
+        plt.grid(True, linestyle='--', alpha=0.2)
+        # Remove all spines (borders)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        # Remove axes frame
+        ax.set_frame_on(False)
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', transparent=True, bbox_inches='tight', pad_inches=0.1)
+        plt.close()
+        buf.seek(0)
+        im = CoreImage(buf, ext='png')
+        buf.close()
+        self.chart_img.texture = im.texture
 
 
 def count_low_and_critical_stock():

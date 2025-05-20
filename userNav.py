@@ -5,6 +5,7 @@ from kivy.metrics import dp
 from kivy.graphics import Color, Rectangle
 from kivy.uix.popup import Popup
 from kivy.uix.dropdown import DropDown
+import auth
 
 ACCENT_BLUE = (0.22, 0.27, 0.74, 1)
 
@@ -46,15 +47,18 @@ class UserNavBar(BoxLayout):
 
         # User info with dropdown
         from kivy.uix.boxlayout import BoxLayout as KivyBoxLayout
-        user_box = KivyBoxLayout(orientation='horizontal', size_hint_x=None, width=dp(150), spacing=dp(8))
+        current_user = auth.getCurrentUser()
+        username = current_user.get('username', 'User') or 'User'
+        user_box = KivyBoxLayout(orientation='horizontal', size_hint_x=None, width=dp(150), spacing=dp(8), pos_hint={'center_y': 0.5})
         user_btn = Button(
-            text='User',
+            text=username,
             size_hint=(None, None),
             size=(dp(90), dp(32)),
             background_normal='',
             background_color=ACCENT_BLUE,
             color=(1,1,1,1),
-            font_size=dp(14)
+            font_size=dp(14),
+            pos_hint={'center_y': 0.5}
         )
         avatar_btn = Button(
             text='U',
@@ -63,7 +67,8 @@ class UserNavBar(BoxLayout):
             background_normal='',
             background_color=ACCENT_BLUE,
             color=(1,1,1,1),
-            font_size=dp(16)
+            font_size=dp(16),
+            pos_hint={'center_y': 0.5}
         )
         # Dropdown for logout
         dropdown = DropDown()
@@ -73,7 +78,6 @@ class UserNavBar(BoxLayout):
         def open_dropdown(instance):
             dropdown.open(instance)
         user_btn.bind(on_release=open_dropdown)
-        avatar_btn.bind(on_release=open_dropdown)
         user_box.add_widget(user_btn)
         user_box.add_widget(avatar_btn)
         self.add_widget(user_box)
@@ -107,7 +111,6 @@ class UserNavBar(BoxLayout):
             sm.current = 'reports_screen'
 
     def logout(self, dropdown):
-        import auth
         dropdown.dismiss()
         auth.logout()
         sm = self.get_screen_manager()
