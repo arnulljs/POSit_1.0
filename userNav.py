@@ -100,19 +100,16 @@ class UserNavBar(BoxLayout):
     def goto_transaction(self, *_):
         sm = self.get_screen_manager()
         if sm:
-            sm.current = 'user_dashboard'
+            sm.switch_to('user_dashboard')
 
     def goto_reports(self, *_):
         sm = self.get_screen_manager()
-        if sm and not sm.has_screen('reports_screen'):
-            from reportsGUI import ReportScreen # Local import
-            sm.add_widget(ReportScreen(name='reports_screen'))
         if sm:
-            sm.current = 'reports_screen'
+            sm.switch_to('reports_screen')
 
     def logout(self, dropdown):
         dropdown.dismiss()
         auth.logout()
         sm = self.get_screen_manager()
         if sm:
-            sm.current = 'login'
+            sm.switch_to('login')

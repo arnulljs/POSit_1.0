@@ -118,36 +118,27 @@ class NavBar(BoxLayout):
     def goto_dashboard(self, *_):
         sm = self.get_screen_manager()
         if sm:
-            sm.current = 'admin_dashboard'
+            sm.switch_to('admin_dashboard')
 
     def goto_inventory(self, *_):
         sm = self.get_screen_manager()
-        if sm and not sm.has_screen('admin_inventory'):
-            from adminInventory import AdminInventoryScreen  # Local import to avoid circular import
-            sm.add_widget(AdminInventoryScreen(name='admin_inventory'))
         if sm:
-            sm.current = 'admin_inventory'
+            sm.switch_to('admin_inventory')
 
     def goto_transaction(self, *_):
         sm = self.get_screen_manager()
         if sm:
-            sm.current = 'user_dashboard'
+            sm.switch_to('user_dashboard')
 
     def goto_user_management(self, *_):
         sm = self.get_screen_manager()
-        if sm and not sm.has_screen('user_management'):
-            from userManagement import UserManagementScreen # Local import
-            sm.add_widget(UserManagementScreen(name='user_management'))
         if sm:
-            sm.current = 'user_management'
+            sm.switch_to('user_management')
 
     def goto_reports(self, *_):
         sm = self.get_screen_manager()
-        if sm and not sm.has_screen('reports_screen'):
-            from reportsGUI import ReportScreen # Local import
-            sm.add_widget(ReportScreen(name='reports_screen'))
         if sm:
-            sm.current = 'reports_screen'
+            sm.switch_to('reports_screen')
 
     def logout(self, dropdown):
         import auth
@@ -155,4 +146,4 @@ class NavBar(BoxLayout):
         auth.logout()
         sm = self.get_screen_manager()
         if sm:
-            sm.current = 'login'
+            sm.switch_to('login')

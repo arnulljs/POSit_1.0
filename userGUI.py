@@ -573,10 +573,15 @@ class CheckoutPopup(Popup):
 
     def save_transaction_to_db(self):
         """Saves the current transaction details to the database."""
+        connection = None
+        cursor = None
         try:
             tp = self.transaction_panel
             if not tp.transaction_id_text:
+                print("[DB SAVE] Transaction ID is empty")
                 return False, "Transaction ID is empty. Cannot save to database."
+
+            print(f"[DB SAVE] Starting transaction save for ID: {tp.transaction_id_text}")
 
             # Get the current user's ID from the session
             from auth import session
@@ -587,6 +592,9 @@ class CheckoutPopup(Popup):
                 result = execute_query(query, (session["username"],), fetch=True)
                 if result:
                     user_id = result[0]['id']
+                    print(f"[DB SAVE] Found user ID: {user_id}")
+                else:
+                    print("[DB SAVE] No user ID found for username:", session["username"])
 
             # Get all ticket IDs in one query to avoid multiple database calls
             ticket_ids = {}
@@ -595,12 +603,14 @@ class CheckoutPopup(Popup):
             for ticket in ticket_results:
                 key = (ticket['event'], ticket['tier'])
                 ticket_ids[key] = ticket['ticket_id']
+            print(f"[DB SAVE] Found {len(ticket_ids)} tickets in database")
 
             # Prepare all transaction items for batch insert
             item_values = []
             for item in tp.transaction_items:
                 key = (item['event'], item['tier'])
                 if key not in ticket_ids:
+                    print(f"[DB SAVE] Ticket not found: {item['event']} - {item['tier']}")
                     return False, f"Ticket not found in database: {item['event']} - {item['tier']}"
                 
                 ticket_id = ticket_ids[key]
@@ -609,9 +619,15 @@ class CheckoutPopup(Popup):
                     item['quantity'],
                     float(item['price'])
                 ))
+            print(f"[DB SAVE] Prepared {len(item_values)} items for insertion")
 
-            # Insert transaction and items in a single transaction
-            from db_config import execute_query
+            # Get a connection and start a transaction
+            from db_config import get_db_connection
+            connection = get_db_connection()
+            cursor = connection.cursor(dictionary=True)
+            print("[DB SAVE] Got database connection")
+            
+            # Insert transaction
             transaction_query = """
                 INSERT INTO transactions 
                 (transaction_id, user_id, total_amount, tax_amount, discount_amount, created_at)
@@ -625,17 +641,11 @@ class CheckoutPopup(Popup):
                 float(tp.discount_amount)
             )
             
-            # Execute transaction insert and get ID
-            execute_query(transaction_query, transaction_params)
-            get_trans_id_query = "SELECT id FROM transactions WHERE transaction_id = %s"
-            trans_result = execute_query(get_trans_id_query, (tp.transaction_id_text,), fetch=True)
-            
-            if not trans_result:
-                return False, "Failed to retrieve inserted transaction ID"
-            
-            transaction_db_id = trans_result[0]['id']
+            cursor.execute(transaction_query, transaction_params)
+            transaction_db_id = cursor.lastrowid
+            print(f"[DB SAVE] Inserted transaction with ID: {transaction_db_id}")
 
-            # Insert transaction items one by one
+            # Insert transaction items
             if item_values:
                 item_query = """
                     INSERT INTO transaction_items 
@@ -643,14 +653,28 @@ class CheckoutPopup(Popup):
                     VALUES (%s, %s, %s, %s, NOW())
                 """
                 for item in item_values:
-                    execute_query(item_query, (transaction_db_id,) + item)
+                    cursor.execute(item_query, (transaction_db_id,) + item)
+                print(f"[DB SAVE] Inserted {len(item_values)} transaction items")
 
+            # Commit the transaction
+            connection.commit()
+            print("[DB SAVE] Transaction committed successfully")
             return True, "Transaction saved to database successfully"
 
         except Exception as e:
+            if connection:
+                connection.rollback()
+                print("[DB SAVE] Transaction rolled back due to error")
             error_details = traceback.format_exc()
             print(f"[DB SAVE] CRITICAL ERROR saving transaction to database: {e}\n{error_details}")
             return False, f"Database error: {str(e)}\nSee console for details."
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                from db_config import close_db_connection
+                close_db_connection(connection)
+                print("[DB SAVE] Database connection closed")
 
 class RouteSelector(BoxLayout):
     def __init__(self, transaction_panel, **kwargs):
@@ -1691,9 +1715,14 @@ class MainScreen(Screen):
 
         # Add the correct navigation bar at the top
         user = auth.getCurrentUser()
-        if user.get('role') == 'admin':
+        print(f"Current user session: {user}")  # Debug log
+        
+        # Default to UserNavBar if role is None or not admin
+        if user and user.get('role') == 'admin':
+            print("Adding admin navigation bar")  # Debug log
             self.root_layout.add_widget(NavBar(), index=len(self.root_layout.children))
         else:
+            print("Adding user navigation bar")  # Debug log
             self.root_layout.add_widget(UserNavBar(), index=len(self.root_layout.children))
 
         # Refresh filter tabs to reflect latest inventory

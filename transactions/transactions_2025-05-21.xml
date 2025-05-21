@@ -335,4 +335,112 @@
 			<Change>66430.00</Change>
 		</Payment>
 	</Transaction>
+	<Transaction>
+		<TransactionID>00014</TransactionID>
+		<Timestamp>2025-05-21 09:21:38</Timestamp>
+		<Items>
+			<Item>
+				<Event>AC/DC</Event>
+				<Tier>Standard Seating</Tier>
+				<Quantity>2</Quantity>
+				<PricePerItem>123123.00</PricePerItem>
+				<ItemTotal>246246.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>246246.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>29549.52</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>275795.52</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>500000000.00</CashTendered>
+			<Change>499724204.48</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00015</TransactionID>
+		<Timestamp>2025-05-21 09:25:12</Timestamp>
+		<Items>
+			<Item>
+				<Event>Queen</Event>
+				<Tier>Gold Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>9000.00</PricePerItem>
+				<ItemTotal>9000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>9000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>1080.00</TaxAmount>
+			<DiscountTitle>SENIOR PASS DISCOUNT 20%</DiscountTitle>
+			<DiscountFactor>0.8</DiscountFactor>
+			<DiscountAmount>1800.00</DiscountAmount>
+			<Total>8280.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Card</PaymentMethod>
+			<CashTendered>8000000.00</CashTendered>
+			<Change>7991720.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00016</TransactionID>
+		<Timestamp>2025-05-21 09:33:40</Timestamp>
+		<Items>
+			<Item>
+				<Event>Coldplay</Event>
+				<Tier>Gold Seating</Tier>
+				<Quantity>1</Quantity>
+				<PricePerItem>7000.00</PricePerItem>
+				<ItemTotal>7000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>7000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>840.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>7840.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>8000000.00</CashTendered>
+			<Change>7992160.00</Change>
+		</Payment>
+	</Transaction>
+	<Transaction>
+		<TransactionID>00017</TransactionID>
+		<Timestamp>2025-05-21 10:21:01</Timestamp>
+		<Items>
+			<Item>
+				<Event>Apo Hiking Society</Event>
+				<Tier>Silver Seating</Tier>
+				<Quantity>10</Quantity>
+				<PricePerItem>2500.00</PricePerItem>
+				<ItemTotal>25000.00</ItemTotal>
+			</Item>
+		</Items>
+		<Summary>
+			<Subtotal>25000.00</Subtotal>
+			<TaxRate>12%</TaxRate>
+			<TaxAmount>3000.00</TaxAmount>
+			<DiscountTitle>No Discount</DiscountTitle>
+			<DiscountFactor>1.0</DiscountFactor>
+			<DiscountAmount>0.00</DiscountAmount>
+			<Total>28000.00</Total>
+		</Summary>
+		<Payment>
+			<PaymentMethod>Cash</PaymentMethod>
+			<CashTendered>8000000.00</CashTendered>
+			<Change>7972000.00</Change>
+		</Payment>
+	</Transaction>
 </DailyTransactions>

@@ -204,145 +204,63 @@ class ReportScreen(Screen):
             self.display_error(report_data["error"])
             return
 
-        summary = report_data.get("summary", {})
         transactions = report_data.get("transactions", [])
 
-        # Create a horizontal BoxLayout to hold both sections
-        horizontal_layout = BoxLayout(orientation='horizontal', spacing=dp(18), size_hint_y=1)
-
-        # Daily Sales Summary in its own rounded rectangle (sidebar)
-        summary_container = BoxLayout(orientation='vertical', size_hint_x=0.35, size_hint_y=1, padding=dp(15), spacing=dp(5))
-        with summary_container.canvas.before:
+        # Outer card with white rounded rectangle
+        from kivy.graphics import Color, RoundedRectangle
+        card = BoxLayout(orientation='vertical', size_hint=(1, 1), padding=dp(15), spacing=dp(5))
+        with card.canvas.before:
             Color(*WHITE)
-            summary_container.bg_rect = RoundedRectangle(size=summary_container.size, pos=summary_container.pos, radius=[(dp(40), dp(40))] * 4)
-        summary_container.bind(size=self._update_summary_bg, pos=self._update_summary_bg)
+            card.bg_rect = RoundedRectangle(size=card.size, pos=card.pos, radius=[(dp(18), dp(18))] * 4)
+        card.bind(size=lambda instance, value: setattr(instance.bg_rect, 'size', instance.size))
+        card.bind(pos=lambda instance, value: setattr(instance.bg_rect, 'pos', instance.pos))
 
-        # Inner vertical box for top-aligned content
-        summary_content = BoxLayout(orientation='vertical', size_hint=(1, None), spacing=dp(5))
-        summary_content.bind(minimum_height=summary_content.setter('height'))
+        trans_header = Label(
+            text="Transaction Details",
+            font_size=sp(18), bold=True, color=BLACK,
+            size_hint_y=None, height=dp(40), halign='center', valign='top'
+        )
+        trans_header.bind(size=lambda instance, value: setattr(instance, 'text_size', (instance.width, None)))
+        card.add_widget(trans_header)
 
-        summary_title = Label(text=f"Daily Sales Summary for: {date_str}", font_size=sp(18), bold=True, color=BLACK, size_hint_y=None, height=dp(40), halign='center', valign='top')
-        summary_title.bind(size=lambda instance, value: setattr(instance, 'text_size', (instance.width, None)))
-        summary_content.add_widget(summary_title)
+        # Table in a scrollview
+        trans_grid = GridLayout(cols=4, size_hint_y=None, spacing=dp(0), padding=[0, 0, 0, 0])
+        trans_grid.bind(minimum_height=trans_grid.setter('height'))
 
-        summary_grid = GridLayout(cols=2, size_hint_y=None, spacing=dp(0), padding=[0, 0, 0, 0])
-        summary_grid.bind(minimum_height=summary_grid.setter('height'))
-        summary_grid.bind(minimum_height=lambda instance, value: setattr(instance, 'height', value))
+        headers = ["Transaction ID", "Timestamp", "Total", "Tax"]
+        for header in headers:
+            header_cell = BoxLayout(size_hint_y=None, height=dp(40), padding=[dp(8),0,dp(8),0])
+            header_label = Label(text=header, color=ACCENT_BLUE, bold=True, halign='center', valign='middle')
+            header_label.bind(size=lambda instance, value: setattr(instance, 'text_size', instance.size))
+            header_cell.add_widget(header_label)
+            trans_grid.add_widget(header_cell)
 
-        summary_items = [
-            ("Total Transactions:", f"{summary.get('transaction_count', 0)}"),
-            ("Total Sales:", f"₱{summary.get('total_sales', 0.0):,.2f}"),
-            ("Total Tax Collected:", f"₱{summary.get('total_tax', 0.0):,.2f}"),
-            ("Total Discounts Given:", f"₱{summary.get('total_discount', 0.0):,.2f}")
-        ]
-        for idx, (label_text, value_text) in enumerate(summary_items):
+        for idx, trans in enumerate(transactions):
             row_color = WHITE if idx % 2 == 0 else ROW_ALT_BLUE
-            label_cell = BoxLayout(size_hint_x=1, size_hint_y=None, height=dp(32), padding=[dp(8),0,dp(8),0])
-            with label_cell.canvas.before:
-                Color(*row_color)
-                from kivy.graphics import Rectangle
-                label_cell.bg_rect = Rectangle(pos=label_cell.pos, size=label_cell.size)
-            label_cell.bind(pos=lambda instance, *args: setattr(instance.bg_rect, 'pos', instance.pos))
-            label_cell.bind(size=lambda instance, *args: setattr(instance.bg_rect, 'size', instance.size))
-            label = Label(text=label_text, color=BLACK, halign='right', valign='middle')
-            label.bind(size=lambda instance, value: setattr(instance, 'text_size', instance.size))
-            label_cell.add_widget(label)
-            summary_grid.add_widget(label_cell)
+            cells = [
+                trans.get('id', 'N/A'),
+                trans.get('timestamp', 'N/A'),
+                f"₱{trans.get('total', 0.0):,.2f}",
+                f"₱{trans.get('tax', 0.0):,.2f}"
+            ]
+            for cell_text in cells:
+                cell = BoxLayout(size_hint_y=None, height=dp(40), padding=[dp(8),0,dp(8),0])
+                with cell.canvas.before:
+                    Color(*row_color)
+                    from kivy.graphics import Rectangle
+                    cell.bg_rect = Rectangle(pos=cell.pos, size=cell.size)
+                cell.bind(pos=lambda instance, *args: setattr(instance.bg_rect, 'pos', instance.pos))
+                cell.bind(size=lambda instance, *args: setattr(instance.bg_rect, 'size', instance.size))
+                label = Label(text=cell_text, color=BLACK, halign='center', valign='middle')
+                label.bind(size=lambda instance, value: setattr(instance, 'text_size', instance.size))
+                cell.add_widget(label)
+                trans_grid.add_widget(cell)
 
-            value_cell = BoxLayout(size_hint_x=1, size_hint_y=None, height=dp(32), padding=[dp(8),0,dp(8),0])
-            with value_cell.canvas.before:
-                Color(*row_color)
-                value_cell.bg_rect = Rectangle(pos=value_cell.pos, size=value_cell.size)
-            value_cell.bind(pos=lambda instance, *args: setattr(instance.bg_rect, 'pos', instance.pos))
-            value_cell.bind(size=lambda instance, *args: setattr(instance.bg_rect, 'size', instance.size))
-            value_label = Label(text=value_text, color=BLACK, halign='left', valign='middle')
-            value_label.bind(size=lambda instance, value: setattr(instance, 'text_size', instance.size))
-            value_cell.add_widget(value_label)
-            summary_grid.add_widget(value_cell)
-        summary_content.add_widget(summary_grid)
-        summary_container.add_widget(summary_content)
-        from kivy.uix.widget import Widget
-        summary_container.add_widget(Widget(size_hint_y=1))
+        scroll = ScrollView(size_hint=(1, 1), bar_width=dp(8))
+        scroll.add_widget(trans_grid)
+        card.add_widget(scroll)
 
-        # Individual Transactions in its own rounded rectangle (main area)
-        from kivy.uix.anchorlayout import AnchorLayout
-        trans_container = AnchorLayout(anchor_y='top', size_hint_x=0.65, size_hint_y=1, padding=dp(15))
-        # Inner vertical box for top-anchored content
-        trans_content = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(5))
-        trans_content.bind(minimum_height=trans_content.setter('height'))
-        with trans_container.canvas.before:
-            Color(*WHITE)
-            trans_container.bg_rect = RoundedRectangle(size=trans_container.size, pos=trans_container.pos, radius=[(dp(40), dp(40))] * 4)
-        trans_container.bind(size=self._update_trans_bg, pos=self._update_trans_bg)
-
-        trans_title = Label(text="Individual Transactions:", font_size=sp(16), bold=True, color=BLACK, size_hint_y=None, height=dp(30), halign='center')
-        trans_title.bind(size=lambda instance, value: setattr(instance, 'text_size', (instance.width, None)))
-        trans_content.add_widget(trans_title)
-
-        if transactions:
-            # Header row
-            trans_header_grid = GridLayout(cols=3, size_hint_y=None, height=dp(36), spacing=dp(0), padding=[0,0,0,0])
-            headers = ["Transaction ID", "Timestamp", "Total Amount"]
-            for h_text in headers:
-                header_cell = BoxLayout(size_hint_x=1, size_hint_y=None, height=dp(36), padding=[dp(8),0,dp(8),0])
-                with header_cell.canvas.before:
-                    Color(*LIGHT_GRAY_BG)
-                    header_cell.bg_rect = Rectangle(pos=header_cell.pos, size=header_cell.size)
-                header_cell.bind(pos=lambda instance, *args: setattr(instance.bg_rect, 'pos', instance.pos))
-                header_cell.bind(size=lambda instance, *args: setattr(instance.bg_rect, 'size', instance.size))
-                header_cell.add_widget(Label(text=h_text, bold=True, color=BLACK, halign='center', valign='middle'))
-                trans_header_grid.add_widget(header_cell)
-            trans_content.add_widget(trans_header_grid)
-
-            for idx, t in enumerate(transactions):
-                row_color = WHITE if idx % 2 == 0 else ROW_ALT_BLUE
-                if "error_details" in t:
-                    row_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(32), padding=[dp(8),0,dp(8),0])
-                    with row_layout.canvas.before:
-                        Color(*row_color)
-                        row_layout.bg_rect = Rectangle(pos=row_layout.pos, size=row_layout.size)
-                    row_layout.bind(pos=lambda instance, *args: setattr(instance.bg_rect, 'pos', instance.pos))
-                    row_layout.bind(size=lambda instance, *args: setattr(instance.bg_rect, 'size', instance.size))
-                    row_layout.add_widget(Label(text=f"Error: {t['id']}", color=(0.8,0,0,1), halign='left'))
-                    row_layout.add_widget(Label(text=f"Details: {t['error_details']}", color=(0.8,0,0,1), halign='left'))
-                    trans_content.add_widget(row_layout)
-                    continue
-
-                row_grid = GridLayout(cols=3, size_hint_y=None, height=dp(32), spacing=dp(0), padding=[0,0,0,0])
-                for i in range(3):
-                    cell = BoxLayout(size_hint_x=1, size_hint_y=None, height=dp(32), padding=[dp(8),0,dp(8),0])
-                    with cell.canvas.before:
-                        Color(*row_color)
-                        cell.bg_rect = Rectangle(pos=cell.pos, size=cell.size)
-                    cell.bind(pos=lambda instance, *args: setattr(instance.bg_rect, 'pos', instance.pos))
-                    cell.bind(size=lambda instance, *args: setattr(instance.bg_rect, 'size', instance.size))
-                    if i == 0:
-                        cell.add_widget(Label(text=t.get("id", "N/A"), color=BLACK, halign='center', valign='middle'))
-                    elif i == 1:
-                        cell.add_widget(Label(text=t.get("timestamp", "N/A"), color=BLACK, halign='center', valign='middle'))
-                    else:
-                        cell.add_widget(Label(text=f"₱{t.get('total', 0.0):,.2f}", color=BLACK, halign='right', valign='middle'))
-                    row_grid.add_widget(cell)
-                trans_content.add_widget(row_grid)
-        else:
-            no_trans_label = Label(text="No individual transactions to display for this day.", color=BLACK, size_hint_y=None, height=dp(30), halign='center')
-            no_trans_label.bind(size=lambda instance, value: setattr(instance, 'text_size', (instance.width, None)))
-            trans_content.add_widget(no_trans_label)
-
-        trans_container.add_widget(trans_content)
-
-        # Add both containers to the horizontal layout (no AnchorLayout)
-        horizontal_layout.add_widget(summary_container)
-        horizontal_layout.add_widget(trans_container)
-        self.report_display_layout.add_widget(horizontal_layout)
-
-    def _update_summary_bg(self, instance, value):
-        instance.bg_rect.size = instance.size
-        instance.bg_rect.pos = instance.pos
-
-    def _update_trans_bg(self, instance, value):
-        instance.bg_rect.size = instance.size
-        instance.bg_rect.pos = instance.pos
+        self.report_display_layout.add_widget(card)
 
     def display_error(self, message):
         self.report_display_layout.clear_widgets()
